@@ -10,9 +10,8 @@ SCRIPTS_DIR = ROOT_DIR / "scripts"
 sys.path.insert(0, str(SCRIPTS_DIR))
 sys.path.insert(0, str(BACKEND_DIR))
 
-from app.main import app  # noqa: E402
-import uvicorn  # noqa: E402
+from app.main import run_server  # noqa: E402
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 3000))
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    run_server(host="0.0.0.0", port=port)

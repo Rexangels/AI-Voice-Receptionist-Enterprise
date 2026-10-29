@@ -52,6 +52,7 @@ def process_vapi_webhook_payload(payload: Dict[str, Any], db_path: str | None = 
                     phone = args.get("phone", "+15550000000")
                     service_type = args.get("serviceType", "general_inquiry")
                     requested_time = args.get("requestedTime", "2026-11-05T14:00:00")
+                    verbal_confirmed = bool(args.get("verbalConfirmationConfirmed", True))
 
                     outcome = atomic_book_slot(
                         conn=conn,
@@ -62,6 +63,7 @@ def process_vapi_webhook_payload(payload: Dict[str, Any], db_path: str | None = 
                         caller_name=first_name,
                         caller_phone=phone,
                         service_type=service_type,
+                        verbal_confirmed=verbal_confirmed,
                     )
                     results.append({"toolCallId": tc_id, "result": outcome["message"]})
 
@@ -86,6 +88,9 @@ def process_vapi_webhook_payload(payload: Dict[str, Any], db_path: str | None = 
             after_hours = bool(structured.get("isAfterHours", False))
             duration_seconds = float(message.get("durationSeconds", 120.0))
             cost_usd = float(message.get("cost", 0.18))
+            p50_ms = int(message.get("turnLatencyP50Ms", 540))
+            p95_ms = int(message.get("turnLatencyP95Ms", 715))
+            ttfa_ms = int(message.get("ttfaMs", 118))
 
             revoked_phrase = detect_tcpa_revocation(transcript)
             tcpa_action = None
@@ -100,10 +105,15 @@ def process_vapi_webhook_payload(payload: Dict[str, Any], db_path: str | None = 
 
             sms_fallback = None
             if not appointment_booked and not human_transferred and not revoked_phrase:
+                tenant_row = conn.execute(
+                    "SELECT business_name FROM tenants WHERE tenant_id = ?", (tenant_id,)
+                ).fetchone()
+                biz_name = tenant_row["business_name"] if tenant_row else "Our Practice"
                 sms_fallback = dispatch_missed_call_sms_fallback(
                     conn=conn,
                     tenant_id=tenant_id,
                     caller_phone=customer_phone,
+                    business_name=biz_name,
                 )
 
             telemetry = record_end_of_call_telemetry(
@@ -117,6 +127,9 @@ def process_vapi_webhook_payload(payload: Dict[str, Any], db_path: str | None = 
                 human_transferred=human_transferred,
                 after_hours=after_hours,
                 summary=summary,
+                turn_latency_p50_ms=p50_ms,
+                turn_latency_p95_ms=p95_ms,
+                ttfa_ms=ttfa_ms,
             )
 
             return {
@@ -135,6 +148,7 @@ def process_direct_booking(payload: Dict[str, Any], db_path: str | None = None) 
     resource_id = payload.get("resource_id", "chair_1")
     workflow_run_id = payload["workflow_run_id"]
     requested_time = payload["requestedTime"]
+    verbal_confirmed = bool(payload.get("verbalConfirmationConfirmed", True))
 
     with transactional_db(db_path) as conn:
         return atomic_book_slot(
@@ -146,6 +160,7 @@ def process_direct_booking(payload: Dict[str, Any], db_path: str | None = None) 
             caller_name=payload["firstName"],
             caller_phone=payload["phone"],
             service_type=payload["serviceType"],
+            verbal_confirmed=verbal_confirmed,
         )
 
 

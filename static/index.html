@@ -6,473 +6,1584 @@
     <title>AI Voice Receptionist Enterprise</title>
     <meta
       name="description"
-      content="Production-grade multi-tenant Inbound AI Voice Receptionist & Atomic Appointment Setter middleware with Vapi/Retell webhook routing, Twilio warm-transfer whisper TwiML, TCPA revocation compliance, and executive ROI telemetry."
+      content="Inbound AI Voice Receptionist client portal and agency administration console."
     />
     <meta property="og:title" content="AI Voice Receptionist Enterprise" />
     <meta
       property="og:description"
-      content="Production-grade multi-tenant Inbound AI Voice Receptionist & Atomic Appointment Setter middleware with Vapi/Retell webhook routing, Twilio warm-transfer whisper TwiML, TCPA revocation compliance, and executive ROI telemetry."
+      content="Inbound AI Voice Receptionist client portal and agency administration console."
     />
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Plus+Jakarta+Sans:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    />
     <style>
       :root {
-        --bg: #0b0f17;
-        --panel: #121826;
-        --panel-alt: #182032;
-        --border: #26324d;
-        --text: #f3f6fc;
-        --muted: #93a3c0;
-        --accent: #38bdf8;
-        --accent-strong: #0284c7;
-        --success: #22c55e;
-        --warn: #f59e0b;
-        --danger: #ef4444;
-        --mono: "JetBrains Mono", "Fira Code", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-        --sans: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        --bg: #0f172a;
+        --surface: #131d33;
+        --surface-elevated: #192540;
+        --border: #243252;
+        --text: #f8fafc;
+        --muted: #94a3b8;
+        --accent: #0ea5e9;
+        --accent-hover: #0284c7;
+        --nominal: #16a34a;
+        --warning: #d97706;
+        --danger: #dc2626;
+        --sans: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
       }
       * {
         box-sizing: border-box;
+      }
+      html {
+        scroll-behavior: smooth;
       }
       body {
         margin: 0;
         background: var(--bg);
         color: var(--text);
         font-family: var(--sans);
-        line-height: 1.5;
+        font-size: 15px;
+        line-height: 1.55;
+        letter-spacing: 0.01em;
       }
-      header {
+      /* Strictly 1-Row, 3-Zone Top Bar Contract */
+      header.topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 2rem;
+        padding: 0.95rem 2rem;
+        background: var(--surface);
         border-bottom: 1px solid var(--border);
-        background: rgba(18, 24, 38, 0.9);
-        padding: 1.25rem 2rem;
+        position: sticky;
+        top: 0;
+        z-index: 30;
+      }
+      .brand-wordmark {
+        font-size: 1.05rem;
+        font-weight: 700;
+        color: var(--text);
+        text-decoration: none;
+        white-space: nowrap;
+        flex-shrink: 0;
+        letter-spacing: -0.02em;
+      }
+      nav.topnav {
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+        overflow-x: auto;
+      }
+      nav.topnav a {
+        color: var(--muted);
+        text-decoration: none;
+        font-size: 0.86rem;
+        font-weight: 600;
+        white-space: nowrap;
+        flex-shrink: 0;
+        padding: 0.25rem 0;
+        border-bottom: 2px solid transparent;
+        transition: color 150ms ease, border-color 150ms ease;
+      }
+      nav.topnav a:hover {
+        color: var(--text);
+        border-bottom-color: var(--accent);
+      }
+      .container {
+        max-width: 1380px;
+        margin: 0 auto;
+        padding: 1.75rem 2rem 4rem;
+      }
+      .workspace-bar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        padding-bottom: 1.25rem;
+        margin-bottom: 1.5rem;
+        border-bottom: 1px solid var(--border);
+      }
+      .workspace-meta {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+      }
+      .workspace-meta h1 {
+        margin: 0;
+        font-size: 1.5rem;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        text-wrap: balance;
+      }
+      .inline-metadata {
+        font-size: 0.82rem;
+        color: var(--muted);
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.5rem;
+      }
+      .workspace-controls {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.75rem;
+      }
+      .segmented-switch {
+        display: inline-flex;
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 0.2rem;
+        gap: 0.2rem;
+      }
+      .segmented-switch button {
+        background: transparent;
+        color: var(--muted);
+        border: none;
+        padding: 0.42rem 0.85rem;
+        border-radius: 6px;
+        font-family: var(--sans);
+        font-size: 0.8rem;
+        font-weight: 600;
+        cursor: pointer;
+        white-space: nowrap;
+        transition: background 150ms ease, color 150ms ease;
+      }
+      .segmented-switch button.active {
+        background: var(--accent);
+        color: #ffffff;
+      }
+      .btn {
+        background: var(--accent);
+        color: #ffffff;
+        border: 1px solid transparent;
+        padding: 0.5rem 1rem;
+        border-radius: 6px;
+        font-family: var(--sans);
+        font-size: 0.84rem;
+        font-weight: 600;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        white-space: nowrap;
+        flex-shrink: 0;
+        min-height: 38px;
+        transition: opacity 150ms ease;
+      }
+      .btn:hover {
+        background: var(--accent-hover);
+      }
+      .btn-secondary {
+        background: var(--surface-elevated);
+        border-color: var(--border);
+        color: var(--text);
+      }
+      .btn-secondary:hover {
+        background: #223152;
+      }
+      .btn-small {
+        padding: 0.3rem 0.65rem;
+        font-size: 0.76rem;
+        min-height: 30px;
+      }
+      .kpi-strip {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+      }
+      @media (max-width: 960px) {
+        .kpi-strip {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+      .kpi-box {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 1.15rem 1.25rem;
+      }
+      .kpi-title {
+        font-size: 0.78rem;
+        color: var(--muted);
+        font-weight: 600;
+      }
+      .kpi-number {
+        font-family: var(--mono);
+        font-variant-numeric: tabular-nums;
+        font-size: 1.65rem;
+        font-weight: 600;
+        margin-top: 0.3rem;
+        color: var(--text);
+      }
+      .kpi-foot {
+        font-size: 0.78rem;
+        color: var(--muted);
+        margin-top: 0.25rem;
+        font-variant-numeric: tabular-nums;
+      }
+      .executive-callout {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 1.1rem 1.25rem;
+        margin-bottom: 2rem;
         display: flex;
         flex-wrap: wrap;
         align-items: center;
         justify-content: space-between;
         gap: 1rem;
       }
-      .brand h1 {
+      .executive-callout p {
         margin: 0;
-        font-size: 1.25rem;
-        font-weight: 700;
-        letter-spacing: -0.02em;
+        font-size: 0.95rem;
+        max-width: 75ch;
       }
-      .brand p {
-        margin: 0.25rem 0 0;
-        font-size: 0.85rem;
-        color: var(--muted);
+      .section-block {
+        margin-bottom: 2.5rem;
       }
-      .header-actions {
+      .section-header {
         display: flex;
-        align-items: center;
+        flex-wrap: wrap;
+        align-items: baseline;
+        justify-content: space-between;
         gap: 0.75rem;
+        margin-bottom: 1rem;
       }
-      .status-dot {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.5rem;
-        font-size: 0.8rem;
-        font-family: var(--mono);
-        color: var(--success);
-        padding: 0.4rem 0.75rem;
-        background: rgba(34, 197, 94, 0.1);
-        border: 1px solid rgba(34, 197, 94, 0.3);
-        border-radius: 6px;
-      }
-      .status-dot::before {
-        content: "";
-        width: 8px;
-        height: 8px;
-        border-radius: 50%;
-        background: var(--success);
-      }
-      .btn {
-        background: var(--accent-strong);
-        color: #fff;
-        border: 1px solid transparent;
-        padding: 0.5rem 0.95rem;
-        border-radius: 6px;
-        font-size: 0.85rem;
-        font-weight: 600;
-        cursor: pointer;
-        text-decoration: none;
-        display: inline-flex;
-        align-items: center;
-        gap: 0.4rem;
-        transition: opacity 0.15s ease;
-      }
-      .btn:hover {
-        opacity: 0.92;
-      }
-      .btn-secondary {
-        background: var(--panel-alt);
-        border-color: var(--border);
-        color: var(--text);
-      }
-      .container {
-        max-width: 1360px;
-        margin: 0 auto;
-        padding: 1.5rem 2rem 3rem;
-      }
-      .kpi-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-        gap: 1rem;
-        margin-bottom: 1.5rem;
-      }
-      .kpi-card {
-        background: var(--panel);
-        border: 1px solid var(--border);
-        border-radius: 8px;
-        padding: 1.1rem 1.25rem;
-      }
-      .kpi-label {
-        font-size: 0.75rem;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        color: var(--muted);
-      }
-      .kpi-value {
-        font-size: 1.65rem;
+      .section-header h2 {
+        margin: 0;
+        font-size: 1.2rem;
         font-weight: 700;
-        font-family: var(--mono);
-        margin-top: 0.35rem;
+        letter-spacing: -0.01em;
       }
-      .kpi-sub {
-        font-size: 0.78rem;
+      .section-header p {
+        margin: 0;
+        font-size: 0.85rem;
         color: var(--muted);
-        margin-top: 0.25rem;
       }
-      .narrative-banner {
-        background: linear-gradient(90deg, rgba(2, 132, 199, 0.16), rgba(18, 24, 38, 0.9));
-        border: 1px solid var(--border);
-        border-left: 4px solid var(--accent);
-        border-radius: 8px;
-        padding: 1rem 1.25rem;
-        margin-bottom: 1.5rem;
-        font-size: 0.92rem;
-      }
-      .main-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
-        gap: 1.25rem;
-      }
-      .card {
-        background: var(--panel);
+      .panel {
+        background: var(--surface);
         border: 1px solid var(--border);
         border-radius: 8px;
         padding: 1.25rem;
-        display: flex;
-        flex-direction: column;
-        gap: 0.9rem;
       }
-      .card h2 {
-        margin: 0;
-        font-size: 1.02rem;
+      .grid-2 {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 1.25rem;
+      }
+      .grid-3 {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 1.25rem;
+      }
+      @media (max-width: 1024px) {
+        .grid-2,
+        .grid-3 {
+          grid-template-columns: 1fr;
+        }
+      }
+      .filter-toolbar {
         display: flex;
+        flex-wrap: wrap;
         align-items: center;
         justify-content: space-between;
+        gap: 0.75rem;
+        margin-bottom: 1rem;
       }
-      .card p.desc {
-        margin: 0;
-        font-size: 0.83rem;
-        color: var(--muted);
-      }
-      .form-row {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-        gap: 0.65rem;
-      }
-      label {
+      .search-box-wrap {
         display: flex;
-        flex-direction: column;
-        gap: 0.25rem;
-        font-size: 0.76rem;
-        color: var(--muted);
+        flex: 1;
+        min-width: 260px;
+        max-width: 540px;
+        align-items: center;
+        gap: 0.5rem;
       }
-      input, select, textarea {
+      .search-box-wrap input[type="search"] {
+        width: 100%;
         background: var(--bg);
         border: 1px solid var(--border);
         color: var(--text);
         border-radius: 6px;
-        padding: 0.45rem 0.6rem;
-        font-size: 0.84rem;
+        padding: 0.55rem 0.85rem;
+        font-size: 0.86rem;
         font-family: var(--sans);
       }
-      pre {
-        background: #070a10;
-        border: 1px solid var(--border);
-        border-radius: 6px;
-        padding: 0.85rem;
-        font-family: var(--mono);
+      .search-box-wrap input[type="search"]:focus {
+        outline: 2px solid var(--accent);
+        outline-offset: 1px;
+      }
+      .form-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 0.75rem;
+        margin-bottom: 0.85rem;
+      }
+      label {
+        display: flex;
+        flex-direction: column;
+        gap: 0.3rem;
         font-size: 0.78rem;
-        overflow-x: auto;
-        margin: 0;
-        max-height: 260px;
-        white-space: pre-wrap;
-        color: #cbd5e1;
+        font-weight: 600;
+        color: var(--muted);
+      }
+      input,
+      select,
+      textarea {
+        background: var(--bg);
+        border: 1px solid var(--border);
+        color: var(--text);
+        border-radius: 6px;
+        padding: 0.5rem 0.65rem;
+        font-size: 0.85rem;
+        font-family: var(--sans);
+      }
+      input:focus,
+      select:focus,
+      textarea:focus {
+        outline: 2px solid var(--accent);
+        outline-offset: 1px;
       }
       table {
         width: 100%;
         border-collapse: collapse;
-        font-size: 0.82rem;
+        font-size: 0.84rem;
+        font-variant-numeric: tabular-nums;
       }
-      th, td {
+      th,
+      td {
         text-align: left;
-        padding: 0.55rem 0.6rem;
+        padding: 0.65rem 0.75rem;
         border-bottom: 1px solid var(--border);
       }
       th {
         color: var(--muted);
         font-weight: 600;
-        font-size: 0.74rem;
-        text-transform: uppercase;
+        font-size: 0.76rem;
       }
-      .code-tag {
+      td.num,
+      th.num {
+        text-align: right;
         font-family: var(--mono);
-        font-size: 0.75rem;
-        color: var(--accent);
+      }
+      tbody tr:hover {
+        background: rgba(255, 255, 255, 0.02);
+      }
+      code,
+      .mono {
+        font-family: var(--mono);
+        font-variant-numeric: tabular-nums;
+        font-size: 0.8rem;
+      }
+      pre.terminal {
+        background: #090e1a;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 0.9rem;
+        font-family: var(--mono);
+        font-variant-numeric: tabular-nums;
+        font-size: 0.78rem;
+        overflow-x: auto;
+        margin: 0.75rem 0 0;
+        max-height: 260px;
+        white-space: pre-wrap;
+        color: #e2e8f0;
+      }
+      .empty-state {
+        text-align: center;
+        padding: 2rem 1rem;
+        color: var(--muted);
+        font-size: 0.88rem;
+      }
+      .admin-only {
+        display: none;
+      }
+      body.mode-admin .admin-only {
+        display: block;
+      }
+      body.mode-admin .business-only {
+        display: none;
+      }
+      .friendly-feedback {
+        margin-top: 0.75rem;
+        padding: 0.75rem 0.9rem;
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        font-size: 0.86rem;
+        color: var(--text);
+      }
+      .status-select {
+        padding: 0.32rem 0.6rem;
+        font-size: 0.8rem;
+        font-weight: 600;
+        border-radius: 6px;
+        cursor: pointer;
+        min-width: 150px;
+        background: var(--bg);
+        border: 1px solid var(--border);
+        color: var(--text);
+      }
+      .status-select.status-CONFIRMED {
+        border-color: rgba(14, 165, 233, 0.55);
+        color: #7dd3fc;
+      }
+      .status-select.status-COMPLETED {
+        border-color: rgba(22, 163, 74, 0.65);
+        color: #86efac;
+      }
+      .status-select.status-RESCHEDULED {
+        border-color: rgba(217, 119, 6, 0.65);
+        color: #fcd34d;
+      }
+      .status-select.status-NO_SHOW {
+        border-color: rgba(220, 38, 38, 0.65);
+        color: #fca5a5;
       }
     </style>
   </head>
-  <body>
-    <header>
-      <div class="brand">
-        <h1>AI Voice Receptionist Enterprise Middleware</h1>
-        <p>Atomic Calendar Slot-Locking • Vapi/Retell Webhook Router • Twilio Warm-Transfer Whisper • FCC April 2025 TCPA Engine</p>
-      </div>
-      <div class="header-actions">
-        <span class="status-dot" id="health-indicator">ASGI ONLINE (PORT 3000)</span>
-        <button class="btn btn-secondary" onclick="runStressTest()">Run Concurrency Suite</button>
-        <a class="btn" href="/docs" target="_blank" rel="noopener">OpenAPI / Swagger</a>
-      </div>
+  <body class="mode-business">
+    <!-- Top Bar Contract: Zone 1 (Wordmark) — Zone 2 (Navigation Links) — Zone 3 (Primary Action) -->
+    <header class="topbar">
+      <a href="/" class="brand-wordmark">AI Voice Receptionist</a>
+      <nav class="topnav" aria-label="Primary Navigation">
+        <a href="#slot-locks">Appointments</a>
+        <a href="#book-or-calls">Schedule &amp; Call Log</a>
+        <a href="#telemetry-qa" class="admin-only">3-Layer Telemetry</a>
+        <a href="#pricing-economics" class="admin-only">Agency Economics</a>
+        <a href="#onboarding-gtm" class="admin-only">Onboarding &amp; GTM</a>
+      </nav>
+      <a href="#book-or-calls" class="btn" id="topbar-cta">Add Appointment</a>
     </header>
 
     <main class="container">
-      <section class="kpi-grid">
-        <div class="kpi-card">
-          <div class="kpi-label">Total Calls Answered</div>
-          <div class="kpi-value" id="kpi-calls">0</div>
-          <div class="kpi-sub" id="kpi-after-hours">0 after-hours captured</div>
+      <!-- Workspace Bar with Role Switcher: Business Owner View (Default) vs Agency Admin View -->
+      <section class="workspace-bar">
+        <div class="workspace-meta">
+          <h1 id="active-tenant-title">Apex Dental &amp; Implant Studio</h1>
+          <div class="inline-metadata" id="active-tenant-meta">
+            <span>24/7 AI Receptionist Active</span>
+            <span aria-hidden="true">·</span>
+            <span>Answers in under 1 second</span>
+            <span aria-hidden="true">·</span>
+            <span>Double-Booking Protection Enabled</span>
+          </div>
         </div>
-        <div class="kpi-card">
-          <div class="kpi-label">Confirmed Slot Locks</div>
-          <div class="kpi-value" id="kpi-bookings">0</div>
-          <div class="kpi-sub">Protected by UNIQUE(tenant, resource, slot)</div>
-        </div>
-        <div class="kpi-card">
-          <div class="kpi-label">Attributed Pipeline</div>
-          <div class="kpi-value" id="kpi-pipeline">$0</div>
-          <div class="kpi-sub" id="kpi-roi">0.0x ROI multiple vs retainer</div>
-        </div>
-        <div class="kpi-card">
-          <div class="kpi-label">TCPA Suppressions</div>
-          <div class="kpi-value" id="kpi-suppressions">0</div>
-          <div class="kpi-sub">FCC April 2025 natural-language opt-outs</div>
+
+        <div class="workspace-controls">
+          <div class="segmented-switch" role="group" aria-label="View Mode Switcher">
+            <button
+              type="button"
+              id="btn-mode-business"
+              class="active"
+              onclick="setViewMode('business')"
+            >
+              Business Owner View
+            </button>
+            <button
+              type="button"
+              id="btn-mode-admin"
+              onclick="setViewMode('admin')"
+            >
+              Agency Admin View
+            </button>
+          </div>
+
+          <label style="flex-direction: row; align-items: center; gap: 0.45rem;">
+            <span>Location:</span>
+            <select id="tenant-selector" onchange="onTenantChange()">
+              <option value="default_clinic">Apex Dental &amp; Implant Studio</option>
+              <option value="primeflow_hvac">PrimeFlow Heating, Cooling &amp; Plumbing</option>
+              <option value="metro_legal">Metro Personal Injury &amp; Intake Law</option>
+            </select>
+          </label>
         </div>
       </section>
 
-      <div class="narrative-banner" id="roi-narrative">
-        Loading executive telemetry summary...
-      </div>
+      <!-- 4-Column KPI Strip (Simplified for Business Owner; Extended in Admin View) -->
+      <section class="kpi-strip">
+        <div class="kpi-box">
+          <div class="kpi-title">Calls Answered 24/7</div>
+          <div class="kpi-number" id="kpi-calls">0</div>
+          <div class="kpi-foot" id="kpi-after-hours">0 after-hours calls saved</div>
+        </div>
+        <div class="kpi-box">
+          <div class="kpi-title">Booked Appointments</div>
+          <div class="kpi-number" id="kpi-bookings">0</div>
+          <div class="kpi-foot" id="kpi-cost-per-booking">$0.00 average cost per booking</div>
+        </div>
+        <div class="kpi-box">
+          <div class="kpi-title">Estimated Revenue Booked</div>
+          <div class="kpi-number" id="kpi-pipeline">$0</div>
+          <div class="kpi-foot" id="kpi-roi">0.0x return on monthly plan</div>
+        </div>
+        <div class="kpi-box">
+          <div class="kpi-title" id="kpi-col4-title">Monthly Plan Minutes</div>
+          <div class="kpi-number" id="kpi-col4-value">0 / 1,500</div>
+          <div class="kpi-foot" id="kpi-col4-foot">Included in your monthly plan</div>
+        </div>
+      </section>
 
-      <div class="main-grid">
-        <!-- 1. Atomic Slot Locker & Race Condition Tester -->
-        <section class="card">
-          <h2>
-            <span>1. Atomic Calendar Slot-Locker</span>
-            <span class="code-tag">POST /api/v1/voice/book-direct</span>
-          </h2>
-          <p class="desc">
-            Test Read-Offer-Lock-Write atomic booking. Submitting the same slot with a new <code>workflow_run_id</code> triggers <code>SLOT_JUST_TAKEN</code> with live fallback times; reusing the same <code>workflow_run_id</code> proves idempotent timeout protection.
-          </p>
-          <div class="form-row">
-            <label>
-              Caller Name
-              <input type="text" id="book-name" value="Elena Rostova" />
-            </label>
-            <label>
-              Caller Phone
-              <input type="text" id="book-phone" value="+15558889999" />
-            </label>
+      <!-- Plain-Language Monthly Executive Summary -->
+      <section class="executive-callout">
+        <div>
+          <div style="font-size: 0.76rem; color: var(--muted); font-weight: 600; margin-bottom: 0.2rem;">
+            Monthly Receptionist Performance Summary
           </div>
-          <div class="form-row">
-            <label>
-              Resource ID
-              <input type="text" id="book-resource" value="chair_1" />
-            </label>
-            <label>
-              Requested ISO Slot
-              <input type="text" id="book-slot" value="2026-11-05T11:00:00" />
-            </label>
-            <label>
-              Workflow Run ID (Idempotency)
-              <input type="text" id="book-run-id" value="run_live_201" />
-            </label>
-          </div>
-          <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
-            <button class="btn" onclick="bookDirect(false)">Lock Appointment Slot</button>
-            <button class="btn btn-secondary" onclick="bookDirect(true)">Simulate Concurrent Race (New Caller, Same Slot)</button>
-            <button class="btn btn-secondary" onclick="checkCalendarTool()">Check Open Slots (Vapi Tool)</button>
-          </div>
-          <pre id="book-output">Ready to test atomic slot-locking...</pre>
-        </section>
+          <p id="roi-narrative">Loading your receptionist performance summary...</p>
+        </div>
+        <div class="inline-metadata">
+          <span>Do-Not-Call Opt-Outs Honored: <strong class="mono" id="kpi-suppressions">0</strong></span>
+          <span aria-hidden="true">·</span>
+          <span>Zero Double-Bookings</span>
+        </div>
+      </section>
 
-        <!-- 2. End-of-Call Analyzer & TCPA Compliance -->
-        <section class="card">
-          <h2>
-            <span>2. End-of-Call Webhook & TCPA Engine</span>
-            <span class="code-tag">POST /api/v1/voice/vapi-webhook</span>
-          </h2>
-          <p class="desc">
-            Test post-call transcript analysis: unbooked hang-ups trigger instant SMS booking fallback unless natural-language TCPA opt-out revocation is detected.
-          </p>
-          <div class="form-row">
-            <label>
-              Caller Phone
-              <input type="text" id="eoc-phone" value="+15557771212" />
-            </label>
-            <label>
-              Call Scenario
-              <select id="eoc-scenario" onchange="applyEocScenario()">
-                <option value="unbooked">Unbooked Hang-up (Triggers Instant SMS Text-Back)</option>
-                <option value="tcpa">FCC April 2025 Natural-Language Opt-Out ("take me off your list")</option>
-                <option value="booked">Completed Appointment Booking (+Pipeline Attribution)</option>
+      <!-- SECTION 1: APPOINTMENTS / LIVE TRANSACTIONAL SLOT LOCKS (With Search Filter) -->
+      <section class="section-block" id="slot-locks">
+        <div class="section-header">
+          <div>
+            <h2 id="slot-table-heading">Booked Appointments (Live Transactional Slot Locks)</h2>
+            <p id="slot-table-subheading">
+              Every appointment below is confirmed on your schedule and protected against double-booking.
+            </p>
+          </div>
+          <div class="inline-metadata">
+            <span id="bookings-attendance-summary">0 Confirmed · 0 Completed · 0 Rescheduled · 0 No-Show</span>
+            <span aria-hidden="true">·</span>
+            <span id="bookings-count-label">Showing 0 of 0 bookings</span>
+          </div>
+        </div>
+
+        <div class="panel">
+          <!-- Search input field above the Live Transactional Slot Locks table -->
+          <div class="filter-toolbar">
+            <div class="search-box-wrap">
+              <input
+                type="search"
+                id="slot-search-input"
+                aria-label="Search bookings by caller name or phone number"
+                placeholder="Search bookings by caller name or phone number (e.g. Sarah, +15552223333)..."
+                oninput="filterBookingsTable()"
+              />
+              <button class="btn btn-secondary btn-small" type="button" onclick="clearBookingSearch()">
+                Clear
+              </button>
+            </div>
+            <div style="display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;">
+              <select id="slot-status-filter" aria-label="Filter by attendance status" onchange="filterBookingsTable()">
+                <option value="ALL">All Attendance Statuses</option>
+                <option value="CONFIRMED">Confirmed</option>
+                <option value="COMPLETED">Completed / Checked In</option>
+                <option value="RESCHEDULED">Rescheduled</option>
+                <option value="NO_SHOW">No-Show</option>
               </select>
-            </label>
+              <select id="slot-resource-filter" aria-label="Filter by room or bay" onchange="filterBookingsTable()">
+                <option value="ALL">All Rooms / Chairs / Trucks</option>
+                <option value="chair_1">Room / Chair 1 (chair_1)</option>
+                <option value="chair_2">Room / Chair 2 (chair_2)</option>
+                <option value="truck_bay_1">Service Truck 1 (truck_bay_1)</option>
+              </select>
+              <button class="btn btn-secondary btn-small" type="button" onclick="refreshState()">
+                Refresh Schedule
+              </button>
+            </div>
           </div>
-          <label>
-            Call Transcript
-            <input type="text" id="eoc-transcript" value="Caller: How much is an exam? Let me check my schedule and call back." />
-          </label>
+
+          <div style="overflow-x: auto;">
+            <table>
+              <thead>
+                <tr>
+                  <th>Booking #</th>
+                  <th>Room / Resource</th>
+                  <th>Appointment Date &amp; Time</th>
+                  <th>Caller Name</th>
+                  <th>Phone Number</th>
+                  <th>Requested Service</th>
+                  <th class="admin-only">Idempotency Key</th>
+                  <th>Status</th>
+                  <th class="num">Action</th>
+                </tr>
+              </thead>
+              <tbody id="bookings-tbody"></tbody>
+            </table>
+            <div id="bookings-empty-state" class="empty-state" style="display: none;">
+              No appointments match your search filter.
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION 2 (BUSINESS OWNER VIEW): SIMPLE APPOINTMENT BOOKING & RECENT CALL ACTIVITY -->
+      <section class="section-block business-only" id="book-or-calls">
+        <div class="section-header">
           <div>
-            <button class="btn" onclick="sendEndOfCall()">Dispatch End-of-Call Report</button>
+            <h2>Schedule an Appointment &amp; Recent Phone Activity</h2>
+            <p>
+              Add a walk-in or phone appointment directly to the schedule, or review how your AI Receptionist handled recent calls.
+            </p>
           </div>
-          <pre id="eoc-output">Ready to process end-of-call webhook...</pre>
-        </section>
+        </div>
 
-        <!-- 3. Twilio Warm Transfer & Whisper Bridge -->
-        <section class="card">
-          <h2>
-            <span>3. Contextual Twilio Warm-Transfer Bridge</span>
-            <span class="code-tag">POST /api/v1/telephony/warm-transfer-hold</span>
-          </h2>
-          <p class="desc">
-            Generates Twilio Conference hold TwiML and Whisper screening TwiML so human staff hear a 10-second AI summary before pressing <code>1</code> to bridge.
-          </p>
-          <div class="form-row">
-            <label>
-              Caller Name
-              <input type="text" id="tx-name" value="Sarah Jenkins" />
-            </label>
-            <label>
-              Urgency Reason
-              <input type="text" id="tx-reason" value="Broken crown with acute sensitivity" />
-            </label>
-            <label>
-              Verified Intake Details
-              <input type="text" id="tx-details" value="Delta Dental PPO verified" />
-            </label>
+        <div class="grid-2">
+          <!-- Simplified Business Booking Card -->
+          <div class="panel">
+            <h3 style="margin: 0 0 0.35rem; font-size: 1rem;">Schedule a New Appointment</h3>
+            <p style="margin: 0 0 0.9rem; font-size: 0.83rem; color: var(--muted);">
+              If a time slot is already taken, the system automatically prevents a double-booking and suggests the next open times.
+            </p>
+            <div class="form-grid">
+              <label>
+                Customer / Patient Name
+                <input type="text" id="biz-book-name" value="Elena Rostova" />
+              </label>
+              <label>
+                Mobile Phone Number
+                <input type="text" id="biz-book-phone" value="+15558889999" />
+              </label>
+            </div>
+            <div class="form-grid">
+              <label>
+                Service Requested
+                <select id="biz-book-service">
+                  <option value="implant_consultation">Implant Consultation (60 mins)</option>
+                  <option value="emergency_crown_repair">Emergency Crown Repair (60 mins)</option>
+                  <option value="emergency_exam">Emergency Exam (45 mins)</option>
+                  <option value="routine_cleaning">Routine Cleaning (45 mins)</option>
+                  <option value="hvac_emergency_dispatch">Emergency Service Dispatch (90 mins)</option>
+                </select>
+              </label>
+              <label>
+                Room / Chair / Truck
+                <select id="biz-book-resource">
+                  <option value="chair_1">Room / Chair 1</option>
+                  <option value="chair_2">Room / Chair 2</option>
+                  <option value="truck_bay_1">Service Truck 1</option>
+                </select>
+              </label>
+              <label>
+                Date &amp; Time
+                <input type="text" id="biz-book-slot" value="2026-11-05T11:00:00" />
+              </label>
+            </div>
+            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+              <button class="btn" type="button" onclick="bookFromBusinessView()">
+                Confirm &amp; Lock Time Slot
+              </button>
+              <button class="btn btn-secondary" type="button" onclick="checkOpenTimesBusinessView()">
+                See Open Times for This Day
+              </button>
+            </div>
+            <div class="friendly-feedback" id="biz-book-feedback">
+              Select a date and time above to schedule a customer or check open times.
+            </div>
           </div>
+
+          <!-- Recent Calls Summary Table for Business Owner -->
+          <div class="panel">
+            <h3 style="margin: 0 0 0.35rem; font-size: 1rem;">Recent Calls Handled by Your AI Receptionist</h3>
+            <p style="margin: 0 0 0.9rem; font-size: 0.83rem; color: var(--muted);">
+              Callers who hang up before picking a time automatically receive a friendly text message with your booking link.
+            </p>
+            <div style="overflow-x: auto;">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Caller Phone</th>
+                    <th>Outcome</th>
+                    <th>Call Summary</th>
+                    <th class="num">Value</th>
+                  </tr>
+                </thead>
+                <tbody id="biz-calls-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================================================================== -->
+      <!-- AGENCY ADMIN & ENGINEERING VIEW ONLY (Hidden from Business Owners)     -->
+      <!-- ===================================================================== -->
+
+      <section class="section-block admin-only" id="middleware-sim">
+        <div class="section-header">
           <div>
-            <button class="btn" onclick="previewWarmTransfer()">Generate Conference & Whisper TwiML</button>
+            <h2>02. Agency Engineering Simulators (Webhook, Concurrency &amp; TwiML)</h2>
+            <p>
+              Internal engineering test harness for Read–Offer–Lock–Write race conditions, idempotency retries, TCPA revocations, and Twilio warm-transfer whisper XML.
+            </p>
           </div>
-          <pre id="tx-output">Click above to inspect generated TwiML & headers...</pre>
-        </section>
+          <div style="display: flex; gap: 0.5rem;">
+            <button class="btn btn-secondary btn-small" type="button" onclick="runStressTest()">
+              Run 7-Step Verification Suite
+            </button>
+            <a
+              class="btn btn-secondary btn-small"
+              href="/public/assets/aistudio/AI_Voice_Receptionist_Business_Blueprint_81e2f619.pdf"
+              target="_blank"
+              rel="noopener"
+            >
+              Open 33-Page Blueprint PDF
+            </a>
+            <a class="btn btn-secondary btn-small" href="/docs" target="_blank" rel="noopener">
+              OpenAPI / Swagger
+            </a>
+          </div>
+        </div>
 
-        <!-- 4. Agency Pricing & Stress-Test Suite Output -->
-        <section class="card">
-          <h2>
-            <span>4. Verification Suite & Value Pricing Calculator</span>
-            <span class="code-tag">scripts/</span>
-          </h2>
-          <p class="desc">
-            Run the 7-step concurrency & race-condition verification suite or calculate client ROI retainers and vendor tier break-even points.
-          </p>
-          <div class="form-row">
-            <label>
-              Missed Calls / Week
-              <input type="number" id="calc-missed" value="15" />
-            </label>
-            <label>
-              Avg Ticket ($ USD)
-              <input type="number" id="calc-ticket" value="850" />
-            </label>
-            <label>
-              Monthly Voice Minutes
-              <input type="number" id="calc-minutes" value="5000" />
-            </label>
+        <div class="grid-2">
+          <!-- Atomic Calendar Slot Locker (Admin Raw Payload View) -->
+          <div class="panel">
+            <h3 style="margin: 0 0 0.35rem; font-size: 1rem;">
+              Atomic Slot-Locker &amp; Concurrency Race Simulator
+            </h3>
+            <p style="margin: 0 0 0.9rem; font-size: 0.82rem; color: var(--muted);">
+              Test <code>UNIQUE(tenant_id, resource_id, slot_iso)</code> race rejection and <code>workflow_run_id</code> 5-second timeout idempotency.
+            </p>
+            <div class="form-grid">
+              <label>
+                Caller Full Name
+                <input type="text" id="book-name" value="Elena Rostova" />
+              </label>
+              <label>
+                Caller Phone (E.164)
+                <input type="text" id="book-phone" value="+15558889999" />
+              </label>
+              <label>
+                Service Type
+                <select id="book-service">
+                  <option value="implant_consultation">implant_consultation (60m)</option>
+                  <option value="emergency_crown_repair">emergency_crown_repair (60m)</option>
+                  <option value="emergency_exam">emergency_exam (45m)</option>
+                  <option value="routine_cleaning">routine_cleaning (45m)</option>
+                  <option value="hvac_emergency_dispatch">hvac_emergency_dispatch (90m)</option>
+                </select>
+              </label>
+            </div>
+            <div class="form-grid">
+              <label>
+                Resource / Bay ID
+                <input type="text" id="book-resource" value="chair_1" />
+              </label>
+              <label>
+                Requested ISO Slot
+                <input type="text" id="book-slot" value="2026-11-05T11:00:00" />
+              </label>
+              <label>
+                Workflow Run ID (Idempotency)
+                <input type="text" id="book-run-id" value="run_live_201" />
+              </label>
+              <label>
+                Verbal Read-Back Gate
+                <select id="book-verbal">
+                  <option value="true">Confirmed ("Yes" spoken)</option>
+                  <option value="false">Unconfirmed (Block write)</option>
+                </select>
+              </label>
+            </div>
+            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+              <button class="btn" type="button" onclick="bookDirect(false)">Lock Appointment Slot</button>
+              <button class="btn btn-secondary" type="button" onclick="bookDirect(true)">
+                Simulate Concurrent Caller Race
+              </button>
+              <button class="btn btn-secondary" type="button" onclick="checkCalendarTool()">
+                Query Vapi checkCalendar Tool
+              </button>
+            </div>
+            <pre class="terminal" id="book-output">Ready to execute atomic slot lock...</pre>
           </div>
-          <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
-            <button class="btn" onclick="runPricingCalculator()">Calculate Retainer & Tier Audit</button>
-            <button class="btn btn-secondary" onclick="runStressTest()">Run 7-Step Stress Test</button>
-          </div>
-          <pre id="suite-output">Ready...</pre>
-        </section>
-      </div>
 
-      <!-- Live Database Tables -->
-      <section class="card" style="margin-top: 1.25rem;">
-        <h2>
-          <span>Live Transactional Slot Locks (`appointment_slot_locks`)</span>
-          <button class="btn btn-secondary" onclick="refreshState()">Refresh Tables</button>
-        </h2>
-        <div style="overflow-x:auto;">
-          <table>
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Resource</th>
-                <th>Locked ISO Slot</th>
-                <th>Caller</th>
-                <th>Phone</th>
-                <th>Service Type</th>
-                <th>Idempotency Key</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody id="bookings-tbody"></tbody>
-          </table>
+          <!-- End-of-Call Analyzer & Warm Transfer TwiML -->
+          <div class="panel">
+            <h3 style="margin: 0 0 0.35rem; font-size: 1rem;">
+              End-of-Call TCPA Engine &amp; Twilio Warm-Transfer Whisper TwiML
+            </h3>
+            <p style="margin: 0 0 0.9rem; font-size: 0.82rem; color: var(--muted);">
+              Inspect raw webhook JSON for missed-call SMS fallback, FCC April 11, 2025 natural-language opt-out revocation, or Twilio conference whisper XML.
+            </p>
+            <div class="form-grid">
+              <label>
+                Caller Phone
+                <input type="text" id="eoc-phone" value="+15557771212" />
+              </label>
+              <label>
+                Webhook Scenario
+                <select id="eoc-scenario" onchange="applyEocScenario()">
+                  <option value="unbooked">Unbooked Hang-up (Dispatches Instant SMS Link)</option>
+                  <option value="tcpa">FCC April 2025 Natural-Language Opt-Out ("take me off your list")</option>
+                  <option value="booked">Completed Appointment Booking (+Pipeline Attribution)</option>
+                </select>
+              </label>
+            </div>
+            <div class="form-grid">
+              <label>
+                Transcript / Whisper Briefing Context
+                <input
+                  type="text"
+                  id="eoc-transcript"
+                  value="Caller: How much is an exam? Let me check with my spouse first and call back."
+                />
+              </label>
+            </div>
+            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+              <button class="btn" type="button" onclick="sendEndOfCall()">
+                Process End-of-Call Webhook
+              </button>
+              <button class="btn btn-secondary" type="button" onclick="previewWarmTransfer()">
+                Generate Warm-Transfer Whisper TwiML
+              </button>
+            </div>
+            <pre class="terminal" id="eoc-output">Ready to inspect webhook response or TwiML...</pre>
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION 3 (ADMIN ONLY): 3-LAYER TELEMETRY & AGENCY MARGINS -->
+      <section class="section-block admin-only" id="telemetry-qa">
+        <div class="section-header">
+          <div>
+            <h2>03. Internal Three-Layer Telemetry &amp; Agency Gross Margin Audit</h2>
+            <p>
+              Agency-only instrumentation across Acoustic Turn-Taking, Booking Integrity, and Agency COGS / Gross Margin.
+            </p>
+          </div>
+        </div>
+
+        <div class="grid-3">
+          <div class="panel">
+            <h3 style="margin: 0 0 0.65rem; font-size: 0.96rem;">Layer 1: Acoustic &amp; Turn-Taking</h3>
+            <table>
+              <tbody>
+                <tr>
+                  <td>End-to-End Latency (P50)</td>
+                  <td class="num" id="tel-p50">535 ms</td>
+                  <td class="num" style="color: var(--nominal);">Target &lt; 600 ms</td>
+                </tr>
+                <tr>
+                  <td>Peak Concurrency Latency (P95)</td>
+                  <td class="num" id="tel-p95">710 ms</td>
+                  <td class="num" style="color: var(--nominal);">Target &lt; 800 ms</td>
+                </tr>
+                <tr>
+                  <td>TTS Time-to-First-Audio (TTFA)</td>
+                  <td class="num" id="tel-ttfa">120 ms</td>
+                  <td class="num" style="color: var(--nominal);">80–250 ms</td>
+                </tr>
+                <tr>
+                  <td>Multi-Turn Eval Accuracy</td>
+                  <td class="num">97.4%</td>
+                  <td class="num" style="color: var(--nominal);">&ge; 95.7%</td>
+                </tr>
+                <tr>
+                  <td>VAD + Endpointing Stack</td>
+                  <td class="num" colspan="2">Silero VAD + Deepgram Nova-3</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="panel">
+            <h3 style="margin: 0 0 0.65rem; font-size: 0.96rem;">Layer 2: Booking &amp; Bay Integrity</h3>
+            <table>
+              <tbody>
+                <tr>
+                  <td>Inbound Answer SLA</td>
+                  <td class="num">100.0%</td>
+                  <td class="num" style="color: var(--nominal);">&lt; 1s pickup</td>
+                </tr>
+                <tr>
+                  <td>Overlapping Double-Bookings</td>
+                  <td class="num">0 (0.0%)</td>
+                  <td class="num" style="color: var(--nominal);">0% required</td>
+                </tr>
+                <tr>
+                  <td>Wrong-Slot Rate (Moved &lt; 24h)</td>
+                  <td class="num">0.4%</td>
+                  <td class="num" style="color: var(--nominal);">&lt; 2.0%</td>
+                </tr>
+                <tr>
+                  <td>Booked-to-Actual Labor Ratio</td>
+                  <td class="num">1.02</td>
+                  <td class="num" style="color: var(--nominal);">Target ~1.00</td>
+                </tr>
+                <tr>
+                  <td>Skill / Bay Capability Mismatch</td>
+                  <td class="num">0.0%</td>
+                  <td class="num" style="color: var(--nominal);">0% required</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="panel">
+            <h3 style="margin: 0 0 0.65rem; font-size: 0.96rem;">Layer 3: Agency Financial Health (Internal)</h3>
+            <table>
+              <tbody>
+                <tr>
+                  <td>Agency Productized Gross Margin</td>
+                  <td class="num" id="tel-margin">75.0%</td>
+                  <td class="num" style="color: var(--nominal);">Target 65–85%</td>
+                </tr>
+                <tr>
+                  <td>Monthly Minute Allowance</td>
+                  <td class="num" id="tel-allowance">1,500 mins</td>
+                  <td class="num">$0.20/min overage</td>
+                </tr>
+                <tr>
+                  <td>30-Day Client Retention</td>
+                  <td class="num">89.0%</td>
+                  <td class="num" style="color: var(--nominal);">-40% churn</td>
+                </tr>
+                <tr>
+                  <td>Revenue Mix Target</td>
+                  <td class="num" colspan="2">70% Retainer · 20% Setup · 10% Audit/Perf</td>
+                </tr>
+                <tr>
+                  <td>Payment Rail Optimization</td>
+                  <td class="num" colspan="2">Stripe ACH (0.8% capped at $5)</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION 4 (ADMIN ONLY): AGENCY FLOOR PRICE & VENDOR TIER MATRIX -->
+      <section class="section-block admin-only" id="pricing-economics">
+        <div class="section-header">
+          <div>
+            <h2>04. Agency Floor-Price Calculator &amp; Vendor Tier Break-Even Audit</h2>
+            <p>
+              Internal agency pricing calculator (confidential from end-clients) to compute floor price, value retainers, and Bland/Vapi/Retell break-even thresholds.
+            </p>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="panel">
+            <h3 style="margin: 0 0 0.65rem; font-size: 1rem;">
+              Discovery Call ROI &amp; Minimum Viable Floor-Price Calculator
+            </h3>
+            <div class="form-grid">
+              <label>
+                Missed Calls / Week
+                <input type="number" id="calc-missed" value="15" />
+              </label>
+              <label>
+                Avg Client Ticket ($ USD)
+                <input type="number" id="calc-ticket" value="850" />
+              </label>
+              <label>
+                Prospect Close Rate (0–1)
+                <input type="number" step="0.05" id="calc-close" value="0.25" />
+              </label>
+            </div>
+            <div class="form-grid">
+              <label>
+                Fulfillment Hours / Mo
+                <input type="number" id="calc-hours" value="8" />
+              </label>
+              <label>
+                Target Hourly Rate ($ USD)
+                <input type="number" id="calc-rate" value="100" />
+              </label>
+              <label>
+                Cumulative Agency Minutes / Mo
+                <input type="number" id="calc-minutes" value="5000" />
+              </label>
+            </div>
+            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+              <button class="btn" type="button" onclick="runPricingCalculator()">
+                Calculate Agency Floor &amp; Tier Break-Even
+              </button>
+              <button class="btn btn-secondary" type="button" onclick="runStressTest()">
+                Run 7-Step Concurrency Suite
+              </button>
+            </div>
+            <pre class="terminal" id="suite-output">Calculating unit economics...</pre>
+          </div>
+
+          <div class="panel">
+            <h3 style="margin: 0 0 0.65rem; font-size: 1rem;">
+              Platform COGS, Latency &amp; HIPAA Compliance Matrix
+            </h3>
+            <div style="overflow-x: auto;">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Platform / Stack</th>
+                    <th class="num">All-In Cost (/min)</th>
+                    <th class="num">Median Latency</th>
+                    <th>HIPAA BAA &amp; ZDR Overhead</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><strong>Retell AI + Telnyx SIP</strong></td>
+                    <td class="num">$0.070 – $0.310</td>
+                    <td class="num">~600 ms</td>
+                    <td>$0/mo (Free self-serve BAA &amp; SOC 2 II)</td>
+                  </tr>
+                  <tr>
+                    <td><strong>Vapi (BYOK Orchestrator)</strong></td>
+                    <td class="num">$0.090 – $0.250+</td>
+                    <td class="num">500 – 700 ms</td>
+                    <td>$3,000/mo ($2k HIPAA + $1k ZDR)</td>
+                  </tr>
+                  <tr>
+                    <td><strong>VoiceAIWrapper Pro</strong></td>
+                    <td class="num">Zero markup</td>
+                    <td class="num">Provider-native</td>
+                    <td>$499/mo Agency-Wide HIPAA BAA</td>
+                  </tr>
+                  <tr>
+                    <td><strong>Bland AI (Start / Build / Scale)</strong></td>
+                    <td class="num">$0.110 – $0.150</td>
+                    <td class="num">700 – 900 ms</td>
+                    <td>Break-even: 14,950m (Build) / 20,000m (Scale)</td>
+                  </tr>
+                  <tr>
+                    <td><strong>Deepgram Voice API + Twilio</strong></td>
+                    <td class="num">~$0.084</td>
+                    <td class="num">&lt; 500 ms (80ms TTFA)</td>
+                    <td>Enterprise custom governance</td>
+                  </tr>
+                  <tr>
+                    <td><strong>LiveKit Agents / Pipecat</strong></td>
+                    <td class="num">$0.048 – $0.095</td>
+                    <td class="num">&lt; 500 ms</td>
+                    <td>$40–$80/mo VPS (Full Sovereign VPC)</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION 5 (ADMIN ONLY): AUTONOMOUS ONBOARDING & GTM LOOM GENERATOR -->
+      <section class="section-block admin-only" id="onboarding-gtm">
+        <div class="section-header">
+          <div>
+            <h2>05. Autonomous 5-Stage Client Onboarding &amp; GTM Loom Audit Generator</h2>
+            <p>
+              Internal agency tools for provisioning new clients, synthesizing 1-Page Engineering Kickoff Briefs, and generating cold outreach Loom scripts.
+            </p>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="panel">
+            <h3 style="margin: 0 0 0.35rem; font-size: 1rem;">
+              Autonomous 5-Stage Client Onboarding &amp; Kickoff Brief Generator
+            </h3>
+            <div class="form-grid">
+              <label>
+                Client Business Name
+                <input type="text" id="ob-name" value="Summit Orthopedic &amp; Spine" />
+              </label>
+              <label>
+                Vertical ICP
+                <select id="ob-vertical">
+                  <option value="dental">Dental &amp; Implant Practice</option>
+                  <option value="medical">Medical / Specialty Clinic</option>
+                  <option value="hvac_plumbing">HVAC &amp; Plumbing Contractor</option>
+                  <option value="legal">Personal Injury / Legal Intake</option>
+                  <option value="auto_repair">Automotive Repair &amp; Bay Shop</option>
+                </select>
+              </label>
+              <label>
+                Annual Revenue Band
+                <select id="ob-revenue">
+                  <option value="$1M - $5M">$1M – $5M (Custom Core ICP)</option>
+                  <option value="$5M - $20M">$5M – $20M (Multi-Bay / Flagship)</option>
+                  <option value="$500K - $1.5M">$500K – $1.5M (Growth Wrapper)</option>
+                </select>
+              </label>
+            </div>
+            <div class="form-grid">
+              <label>
+                Setup Fee ($ USD)
+                <input type="number" id="ob-setup" value="5000" />
+              </label>
+              <label>
+                Monthly Retainer ($ USD)
+                <input type="number" id="ob-retainer" value="1800" />
+              </label>
+              <label>
+                Warm-Transfer Escalation Phone
+                <input type="text" id="ob-phone" value="+15553998877" />
+              </label>
+            </div>
+            <div class="form-grid">
+              <label>
+                Operating Hours &amp; Insurance / Dispatch Qualification Rules
+                <input
+                  type="text"
+                  id="ob-rules"
+                  value="Mon-Fri 8am-5pm; verify BlueCross PPO &amp; Aetna; never quote surgical fees."
+                />
+              </label>
+            </div>
+            <button class="btn" type="button" onclick="runOnboardingPipeline()">
+              Execute 5-Stage Onboarding &amp; Provision Tenant
+            </button>
+            <pre class="terminal" id="ob-output">Ready to provision client and synthesize Kickoff Brief...</pre>
+          </div>
+
+          <div class="panel">
+            <h3 style="margin: 0 0 0.35rem; font-size: 1rem;">
+              After-Hours Mystery Caller Loom Script &amp; MSA Generator
+            </h3>
+            <div class="form-grid">
+              <label>
+                Decision Maker Name
+                <input type="text" id="gtm-doctor" value="Dr. Miller" />
+              </label>
+              <label>
+                Target Practice / Company
+                <input type="text" id="gtm-clinic" value="Manchester Dental &amp; Implant Studio" />
+              </label>
+              <label>
+                City / Market
+                <input type="text" id="gtm-city" value="Manchester" />
+              </label>
+            </div>
+            <div class="form-grid">
+              <label>
+                High-Ticket Service Tested at 6:15 PM
+                <input type="text" id="gtm-service" value="new-patient dental implant consultation" />
+              </label>
+              <label>
+                Avg Visit Value ($ USD)
+                <input type="number" id="gtm-ticket" value="450" />
+              </label>
+              <label>
+                Est. Missed Calls / Week
+                <input type="number" id="gtm-missed" value="4" />
+              </label>
+            </div>
+            <button class="btn" type="button" onclick="generateGtmAssets()">
+              Generate Loom Script &amp; MSA Guardrails
+            </button>
+            <pre class="terminal" id="gtm-output">Generating GTM script &amp; MSA contract excerpt...</pre>
+          </div>
         </div>
       </section>
     </main>
 
     <script>
+      let allBookings = [];
+      let allCalls = [];
+      let latestRoi = null;
+      let activeTenantId = "default_clinic";
+      let currentViewMode = "business";
+
+      const FRIENDLY_SERVICE_NAMES = {
+        implant_consultation: "Dental Implant Consultation",
+        emergency_crown_repair: "Emergency Crown Repair",
+        emergency_exam: "Emergency Exam",
+        routine_cleaning: "Routine Cleaning",
+        dental_consultation: "Dental Consultation",
+        hvac_emergency_dispatch: "Emergency HVAC Dispatch",
+        general_inquiry: "General Consultation",
+      };
+
+      const FRIENDLY_RESOURCE_NAMES = {
+        chair_1: "Room / Chair 1",
+        chair_2: "Room / Chair 2",
+        truck_bay_1: "Service Truck 1",
+      };
+
+      function formatFriendlyDate(isoStr) {
+        if (!isoStr) return "";
+        const d = new Date(isoStr);
+        if (isNaN(d.getTime())) return isoStr;
+        return d.toLocaleString("en-US", {
+          weekday: "short",
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+          hour: "numeric",
+          minute: "2-digit",
+        });
+      }
+
+      function setViewMode(mode) {
+        currentViewMode = mode;
+        document.body.className = mode === "admin" ? "mode-admin" : "mode-business";
+        document.getElementById("btn-mode-business").classList.toggle("active", mode === "business");
+        document.getElementById("btn-mode-admin").classList.toggle("active", mode === "admin");
+
+        const topCta = document.getElementById("topbar-cta");
+        if (mode === "admin") {
+          topCta.textContent = "OpenAPI Spec";
+          topCta.href = "/docs";
+          topCta.target = "_blank";
+          document.getElementById("slot-table-heading").textContent =
+            "01. Live Transactional Slot Locks";
+          document.getElementById("slot-table-subheading").innerHTML =
+            "Protected by SQLite/PostgreSQL exclusion constraints (<code>UNIQUE(tenant_id, resource_id, slot_iso)</code>) and <code>workflow_run_id</code> idempotency keys.";
+        } else {
+          topCta.textContent = "Add Appointment";
+          topCta.href = "#book-or-calls";
+          topCta.removeAttribute("target");
+          document.getElementById("slot-table-heading").textContent =
+            "Booked Appointments (Live Transactional Slot Locks)";
+          document.getElementById("slot-table-subheading").textContent =
+            "Every appointment below is confirmed on your schedule and protected against double-booking.";
+        }
+
+        renderKpiFourthColumn();
+        filterBookingsTable();
+      }
+
+      function renderKpiFourthColumn() {
+        if (!latestRoi) return;
+        const t4Title = document.getElementById("kpi-col4-title");
+        const t4Val = document.getElementById("kpi-col4-value");
+        const t4Foot = document.getElementById("kpi-col4-foot");
+
+        if (currentViewMode === "business") {
+          t4Title.textContent = "Monthly Plan Minutes";
+          t4Val.textContent = `${latestRoi.connected_minutes_used} / ${latestRoi.included_minutes_allowance}`;
+          t4Foot.textContent =
+            latestRoi.overage_minutes > 0
+              ? `${latestRoi.overage_minutes} extra mins ($${Number(latestRoi.overage_charge_usd).toFixed(2)})`
+              : "Within your included monthly plan";
+        } else {
+          t4Title.textContent = "Agency Gross Margin (Internal)";
+          t4Val.textContent = `${latestRoi.agency_gross_margin_pct}%`;
+          t4Foot.textContent = `COGS: ~$${latestRoi.agency_estimated_cogs_usd}/mo · ${latestRoi.connected_minutes_used}/${latestRoi.included_minutes_allowance}m`;
+        }
+      }
+
+      function onTenantChange() {
+        const sel = document.getElementById("tenant-selector");
+        activeTenantId = sel.value;
+        refreshState();
+      }
+
       async function refreshState() {
         try {
-          const res = await fetch("/api/v1/voice/state?tenant_id=default_clinic");
+          const res = await fetch(
+            `/api/v1/voice/state?tenant_id=${encodeURIComponent(activeTenantId)}`
+          );
           const data = await res.json();
-          document.getElementById("kpi-calls").textContent = data.roi.total_calls_answered;
-          document.getElementById("kpi-after-hours").textContent =
-            `${data.roi.after_hours_calls_captured} after-hours captured`;
-          document.getElementById("kpi-bookings").textContent = data.roi.confirmed_appointments_booked;
-          document.getElementById("kpi-pipeline").textContent =
-            `$${Number(data.roi.attributed_pipeline_usd).toLocaleString()}`;
-          document.getElementById("kpi-roi").textContent =
-            `${data.roi.roi_multiple}x ROI vs $${data.roi.retainer_fee_usd} retainer`;
-          document.getElementById("kpi-suppressions").textContent = data.suppressions.length;
-          document.getElementById("roi-narrative").textContent = data.roi.executive_summary_narrative;
 
-          const tbody = document.getElementById("bookings-tbody");
-          tbody.innerHTML = data.bookings
-            .map(
-              (b) => `
-            <tr>
-              <td>#${b.id}</td>
-              <td><code>${b.resource_id}</code></td>
-              <td><code>${b.slot_iso}</code></td>
-              <td>${b.caller_name}</td>
-              <td>${b.caller_phone}</td>
-              <td>${b.service_type}</td>
-              <td><code>${b.idempotency_key}</code></td>
-              <td>${b.status}</td>
-            </tr>
-          `
-            )
-            .join("");
+          const selector = document.getElementById("tenant-selector");
+          if (Array.isArray(data.tenants) && data.tenants.length > 0) {
+            selector.innerHTML = data.tenants
+              .map(
+                (t) =>
+                  `<option value="${t.tenant_id}" ${
+                    t.tenant_id === activeTenantId ? "selected" : ""
+                  }>${t.business_name}</option>`
+              )
+              .join("");
+            const currentTenant =
+              data.tenants.find((t) => t.tenant_id === activeTenantId) || data.tenants[0];
+            if (currentTenant) {
+              document.getElementById("active-tenant-title").textContent =
+                currentTenant.business_name;
+              if (currentViewMode === "admin") {
+                document.getElementById("active-tenant-meta").innerHTML = `
+                  <span>${currentTenant.orchestrator}</span>
+                  <span aria-hidden="true">·</span>
+                  <span>${currentTenant.hipaa_baa_status}</span>
+                  <span aria-hidden="true">·</span>
+                  <span>SHAKEN/STIR ${currentTenant.shaken_stir_status}</span>
+                `;
+              } else {
+                document.getElementById("active-tenant-meta").innerHTML = `
+                  <span>24/7 AI Receptionist Active</span>
+                  <span aria-hidden="true">·</span>
+                  <span>Forwarding Urgent Calls to ${currentTenant.escalation_phone}</span>
+                  <span aria-hidden="true">·</span>
+                  <span>Double-Booking Protection Enabled</span>
+                `;
+              }
+            }
+          }
+
+          const roi = data.roi;
+          latestRoi = roi;
+          document.getElementById("kpi-calls").textContent = roi.total_calls_answered;
+          document.getElementById("kpi-after-hours").textContent =
+            `${roi.after_hours_calls_captured} after-hours calls saved · ${roi.warm_transfers_completed || 0} transferred to staff`;
+          document.getElementById("kpi-bookings").textContent = roi.confirmed_appointments_booked;
+          document.getElementById("kpi-cost-per-booking").textContent =
+            `$${Number(roi.cost_per_booking_usd || 0).toFixed(2)} average cost per booking`;
+          document.getElementById("kpi-pipeline").textContent =
+            `$${Number(roi.attributed_pipeline_usd).toLocaleString()}`;
+          document.getElementById("kpi-roi").textContent =
+            `${roi.roi_multiple}x return on your $${Number(roi.retainer_fee_usd).toLocaleString()}/mo plan`;
+          document.getElementById("kpi-suppressions").textContent = data.suppressions.length;
+          document.getElementById("roi-narrative").textContent = roi.executive_summary_narrative;
+
+          renderKpiFourthColumn();
+
+          if (roi.telemetry_3_layer) {
+            const ac = roi.telemetry_3_layer.acoustic_system;
+            document.getElementById("tel-p50").textContent = `${ac.turn_latency_p50_ms} ms`;
+            document.getElementById("tel-p95").textContent = `${ac.turn_latency_p95_ms} ms`;
+            document.getElementById("tel-ttfa").textContent = `${ac.ttfa_ms} ms`;
+            document.getElementById("tel-margin").textContent = `${roi.agency_gross_margin_pct}%`;
+            document.getElementById("tel-allowance").textContent = `${roi.included_minutes_allowance} mins`;
+          }
+
+          allBookings = Array.isArray(data.bookings) ? data.bookings : [];
+          allCalls = Array.isArray(data.calls) ? data.calls : [];
+          filterBookingsTable();
+          renderBusinessCallsTable();
         } catch (err) {
           console.error(err);
         }
+      }
+
+      function filterBookingsTable() {
+        const searchInput = document.getElementById("slot-search-input");
+        const query = (searchInput ? searchInput.value : "").trim().toLowerCase();
+        const resourceFilter = document.getElementById("slot-resource-filter").value;
+        const statusFilterEl = document.getElementById("slot-status-filter");
+        const statusFilter = statusFilterEl ? statusFilterEl.value : "ALL";
+
+        const counts = { CONFIRMED: 0, COMPLETED: 0, RESCHEDULED: 0, NO_SHOW: 0 };
+        allBookings.forEach((b) => {
+          const st = b.status || "CONFIRMED";
+          if (counts[st] !== undefined) counts[st] += 1;
+        });
+        const summaryEl = document.getElementById("bookings-attendance-summary");
+        if (summaryEl) {
+          summaryEl.textContent = `${counts.CONFIRMED} Confirmed · ${counts.COMPLETED} Completed · ${counts.RESCHEDULED} Rescheduled · ${counts.NO_SHOW} No-Show`;
+        }
+
+        const filtered = allBookings.filter((b) => {
+          const nameMatch = String(b.caller_name || "").toLowerCase().includes(query);
+          const phoneMatch = String(b.caller_phone || "").toLowerCase().includes(query);
+          const matchesQuery = !query || nameMatch || phoneMatch;
+          const matchesResource =
+            resourceFilter === "ALL" || b.resource_id === resourceFilter;
+          const matchesStatus =
+            statusFilter === "ALL" || (b.status || "CONFIRMED") === statusFilter;
+          return matchesQuery && matchesResource && matchesStatus;
+        });
+
+        document.getElementById("bookings-count-label").textContent =
+          `Showing ${filtered.length} of ${allBookings.length} bookings`;
+
+        const tbody = document.getElementById("bookings-tbody");
+        const emptyState = document.getElementById("bookings-empty-state");
+
+        if (filtered.length === 0) {
+          tbody.innerHTML = "";
+          emptyState.style.display = "block";
+          return;
+        }
+
+        emptyState.style.display = "none";
+        tbody.innerHTML = filtered
+          .map((b) => {
+            const friendlyResource =
+              currentViewMode === "business"
+                ? FRIENDLY_RESOURCE_NAMES[b.resource_id] || b.resource_id
+                : `<code>${b.resource_id}</code>`;
+            const friendlyTime =
+              currentViewMode === "business"
+                ? formatFriendlyDate(b.slot_iso)
+                : `<code>${b.slot_iso}</code>`;
+            const friendlyService =
+              currentViewMode === "business"
+                ? FRIENDLY_SERVICE_NAMES[b.service_type] || b.service_type
+                : b.service_type;
+            const currentStatus = b.status || "CONFIRMED";
+
+            return `
+              <tr>
+                <td class="mono">#${b.id}</td>
+                <td>${friendlyResource}</td>
+                <td>${friendlyTime}</td>
+                <td><strong>${b.caller_name}</strong></td>
+                <td class="mono">${b.caller_phone}</td>
+                <td>${friendlyService} <span style="color: var(--muted);">(${b.duration_minutes || 60} mins)</span></td>
+                <td class="admin-only"><code>${b.idempotency_key}</code></td>
+                <td>
+                  <select
+                    class="status-select status-${currentStatus}"
+                    aria-label="Update appointment status for ${b.caller_name}"
+                    onchange="updateBookingStatus(${b.id}, this.value)"
+                  >
+                    <option value="CONFIRMED" ${currentStatus === "CONFIRMED" ? "selected" : ""}>Confirmed</option>
+                    <option value="COMPLETED" ${currentStatus === "COMPLETED" ? "selected" : ""}>Completed / Checked In</option>
+                    <option value="RESCHEDULED" ${currentStatus === "RESCHEDULED" ? "selected" : ""}>Rescheduled</option>
+                    <option value="NO_SHOW" ${currentStatus === "NO_SHOW" ? "selected" : ""}>No-Show</option>
+                  </select>
+                </td>
+                <td class="num">
+                  <button class="btn btn-secondary btn-small" type="button" onclick="releaseSlot(${b.id})">
+                    ${currentViewMode === "business" ? "Cancel Booking" : "Release Slot"}
+                  </button>
+                </td>
+              </tr>
+            `;
+          })
+          .join("");
+      }
+
+      async function updateBookingStatus(bookingId, newStatus) {
+        const res = await fetch("/api/v1/voice/update-booking-status", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            booking_id: bookingId,
+            tenant_id: activeTenantId,
+            status: newStatus,
+          }),
+        });
+        const data = await res.json();
+        const out = document.getElementById("book-output");
+        if (out) out.textContent = JSON.stringify(data, null, 2);
+        const fb = document.getElementById("biz-book-feedback");
+        if (fb && data.updated) {
+          const statusLabels = {
+            CONFIRMED: "Confirmed",
+            COMPLETED: "Completed / Checked In",
+            RESCHEDULED: "Rescheduled (Original time slot reopened)",
+            NO_SHOW: "No-Show",
+          };
+          fb.textContent = `Updated attendance for ${data.caller_name} (${formatFriendlyDate(
+            data.slot_iso
+          )}) to: ${statusLabels[data.status] || data.status}.`;
+        }
+        refreshState();
+      }
+
+      function renderBusinessCallsTable() {
+        const tbody = document.getElementById("biz-calls-tbody");
+        if (!tbody) return;
+        if (allCalls.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="4" class="empty-state">No calls logged yet.</td></tr>`;
+          return;
+        }
+        tbody.innerHTML = allCalls
+          .slice(0, 8)
+          .map((c) => {
+            let outcome = "Answered · Texted Booking Link";
+            if (c.appointment_booked) outcome = "Appointment Scheduled";
+            if (c.human_transferred) outcome = "Transferred to Staff";
+            return `
+              <tr>
+                <td class="mono">${c.caller_phone || "Unknown"}</td>
+                <td>${outcome}${c.after_hours ? " (After-Hours)" : ""}</td>
+                <td>${c.summary || "Call completed."}</td>
+                <td class="num">${
+                  c.attributed_revenue_usd > 0
+                    ? "$" + Number(c.attributed_revenue_usd).toLocaleString()
+                    : "—"
+                }</td>
+              </tr>
+            `;
+          })
+          .join("");
+      }
+
+      function clearBookingSearch() {
+        document.getElementById("slot-search-input").value = "";
+        document.getElementById("slot-resource-filter").value = "ALL";
+        const statusFilterEl = document.getElementById("slot-status-filter");
+        if (statusFilterEl) statusFilterEl.value = "ALL";
+        filterBookingsTable();
+      }
+
+      async function releaseSlot(bookingId) {
+        const res = await fetch("/api/v1/voice/release-slot", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ booking_id: bookingId, tenant_id: activeTenantId }),
+        });
+        const data = await res.json();
+        const out = document.getElementById("book-output");
+        if (out) out.textContent = JSON.stringify(data, null, 2);
+        const fb = document.getElementById("biz-book-feedback");
+        if (fb && data.released) {
+          fb.textContent = `Cancelled appointment for ${data.caller_name} (${formatFriendlyDate(
+            data.slot_iso
+          )}). That time slot is now open again.`;
+        }
+        refreshState();
+      }
+
+      async function bookFromBusinessView() {
+        const payload = {
+          tenant_id: activeTenantId,
+          resource_id: document.getElementById("biz-book-resource").value,
+          workflow_run_id: "biz_" + Date.now(),
+          firstName: document.getElementById("biz-book-name").value,
+          phone: document.getElementById("biz-book-phone").value,
+          serviceType: document.getElementById("biz-book-service").value,
+          requestedTime: document.getElementById("biz-book-slot").value,
+          verbalConfirmationConfirmed: true,
+        };
+        const res = await fetch("/api/v1/voice/book-direct", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        const fb = document.getElementById("biz-book-feedback");
+        if (data.status === "CONFIRMED") {
+          fb.textContent = `Confirmed: ${payload.firstName} is scheduled for ${formatFriendlyDate(
+            payload.requestedTime
+          )}. A confirmation text was sent to ${payload.phone}.`;
+        } else if (data.status === "SLOT_JUST_TAKEN") {
+          const alts = (data.alternatives || []).map(formatFriendlyDate).join(" or ");
+          fb.textContent = `That time is already booked. Next available times on that day: ${alts}.`;
+        } else {
+          fb.textContent = data.message || "Updated schedule.";
+        }
+        refreshState();
+      }
+
+      async function checkOpenTimesBusinessView() {
+        const slotVal = document.getElementById("biz-book-slot").value.slice(0, 10);
+        const payload = {
+          message: {
+            type: "tool-calls",
+            toolCalls: [
+              {
+                id: "call_check_biz",
+                function: {
+                  name: "checkCalendar",
+                  arguments: {
+                    tenant_id: activeTenantId,
+                    resource_id: document.getElementById("biz-book-resource").value,
+                    requestedDate: slotVal,
+                  },
+                },
+              },
+            ],
+          },
+        };
+        const res = await fetch("/api/v1/voice/vapi-webhook", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        const msg =
+          data.results && data.results[0] ? data.results[0].result : "Checked schedule.";
+        document.getElementById("biz-book-feedback").textContent = msg;
       }
 
       async function bookDirect(simulateRace) {
@@ -481,13 +1592,17 @@
           runIdInput.value = "run_race_" + Math.floor(Math.random() * 9000 + 1000);
         }
         const payload = {
-          tenant_id: "default_clinic",
+          tenant_id: activeTenantId,
           resource_id: document.getElementById("book-resource").value,
           workflow_run_id: runIdInput.value,
-          firstName: simulateRace ? "Competing Caller" : document.getElementById("book-name").value,
+          firstName: simulateRace
+            ? "Competing Caller (Race Test)"
+            : document.getElementById("book-name").value,
           phone: document.getElementById("book-phone").value,
-          serviceType: "dental_consultation",
+          serviceType: document.getElementById("book-service").value,
           requestedTime: document.getElementById("book-slot").value,
+          verbalConfirmationConfirmed:
+            document.getElementById("book-verbal").value === "true",
         };
         const res = await fetch("/api/v1/voice/book-direct", {
           method: "POST",
@@ -510,7 +1625,7 @@
                 function: {
                   name: "checkCalendar",
                   arguments: {
-                    tenant_id: "default_clinic",
+                    tenant_id: activeTenantId,
                     resource_id: document.getElementById("book-resource").value,
                     requestedDate: slotVal,
                   },
@@ -532,11 +1647,14 @@
         const sc = document.getElementById("eoc-scenario").value;
         const tr = document.getElementById("eoc-transcript");
         if (sc === "unbooked") {
-          tr.value = "Caller: How much is an exam? Let me check with my spouse first and call back.";
+          tr.value =
+            "Caller: How much is an exam? Let me check with my spouse first and call back.";
         } else if (sc === "tcpa") {
-          tr.value = "Caller: Please take me off your list and do not call this number again.";
+          tr.value =
+            "Caller: Please take me off your list and do not call this number again.";
         } else {
-          tr.value = "Caller: Thank you for locking in my cleaning appointment for tomorrow!";
+          tr.value =
+            "Caller: Thank you for locking in my implant consultation for tomorrow!";
         }
       }
 
@@ -545,11 +1663,14 @@
         const payload = {
           message: {
             type: "end-of-call-report",
-            durationSeconds: 105.0,
+            durationSeconds: 112.0,
             cost: 0.15,
+            turnLatencyP50Ms: 525,
+            turnLatencyP95Ms: 695,
+            ttfaMs: 115,
             call: {
               id: "call_live_" + Math.floor(Math.random() * 90000 + 10000),
-              tenantId: "default_clinic",
+              tenantId: activeTenantId,
               customer: { number: document.getElementById("eoc-phone").value },
             },
             transcript: document.getElementById("eoc-transcript").value,
@@ -575,10 +1696,10 @@
 
       async function previewWarmTransfer() {
         const payload = {
-          caller_name: document.getElementById("tx-name").value,
-          caller_phone: "+15552223333",
-          urgency_reason: document.getElementById("tx-reason").value,
-          verified_details: document.getElementById("tx-details").value,
+          caller_name: document.getElementById("book-name").value || "Sarah Jenkins",
+          caller_phone: document.getElementById("eoc-phone").value || "+15552223333",
+          urgency_reason: "Acute dental crown sensitivity / emergency triage",
+          verified_details: "Delta Dental PPO active, patient intake verified",
         };
         const res = await fetch("/api/v1/telephony/warm-transfer-preview", {
           method: "POST",
@@ -586,8 +1707,8 @@
           body: JSON.stringify(payload),
         });
         const data = await res.json();
-        document.getElementById("tx-output").textContent =
-          "=== Headers ===\n" +
+        document.getElementById("eoc-output").textContent =
+          "=== Bridge Headers ===\n" +
           JSON.stringify(data.headers, null, 2) +
           "\n\n=== Caller Hold TwiML ===\n" +
           data.hold_twiml +
@@ -596,7 +1717,8 @@
       }
 
       async function runStressTest() {
-        document.getElementById("suite-output").textContent = "Running 7-step verification suite...";
+        document.getElementById("suite-output").textContent =
+          "Running 7-step concurrency, idempotency & TCPA verification suite...";
         const res = await fetch("/api/v1/voice/run-stress-test", { method: "POST" });
         const data = await res.json();
         document.getElementById("suite-output").textContent = data.output;
@@ -606,6 +1728,9 @@
         const payload = {
           missed_calls_per_week: Number(document.getElementById("calc-missed").value),
           avg_ticket_value_usd: Number(document.getElementById("calc-ticket").value),
+          close_rate: Number(document.getElementById("calc-close").value),
+          monthly_fulfillment_hours: Number(document.getElementById("calc-hours").value),
+          target_hourly_rate_usd: Number(document.getElementById("calc-rate").value),
           monthly_minutes: Number(document.getElementById("calc-minutes").value),
         };
         const res = await fetch("/api/v1/voice/pricing-calculator", {
@@ -617,8 +1742,49 @@
         document.getElementById("suite-output").textContent = JSON.stringify(data, null, 2);
       }
 
+      async function runOnboardingPipeline() {
+        const payload = {
+          business_name: document.getElementById("ob-name").value,
+          vertical: document.getElementById("ob-vertical").value,
+          annual_revenue_band: document.getElementById("ob-revenue").value,
+          setup_fee_usd: Number(document.getElementById("ob-setup").value),
+          retainer_fee_usd: Number(document.getElementById("ob-retainer").value),
+          escalation_phone: document.getElementById("ob-phone").value,
+          insurance_or_dispatch_rules: document.getElementById("ob-rules").value,
+        };
+        const res = await fetch("/api/v1/agency/onboard-client", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        document.getElementById("ob-output").textContent = data.kickoff_brief;
+        activeTenantId = data.tenant_id;
+        refreshState();
+      }
+
+      async function generateGtmAssets() {
+        const payload = {
+          prospect_name: document.getElementById("gtm-doctor").value,
+          clinic_name: document.getElementById("gtm-clinic").value,
+          city: document.getElementById("gtm-city").value,
+          service_focus: document.getElementById("gtm-service").value,
+          avg_ticket_usd: Number(document.getElementById("gtm-ticket").value),
+          missed_calls_per_week: Number(document.getElementById("gtm-missed").value),
+        };
+        const res = await fetch("/api/v1/agency/generate-gtm-assets", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        document.getElementById("gtm-output").textContent =
+          data.loom_script + "\n\n" + data.msa_contract_summary;
+      }
+
       refreshState();
-      previewWarmTransfer();
+      runPricingCalculator();
+      generateGtmAssets();
     </script>
   </body>
 </html>
