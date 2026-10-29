@@ -1,12 +1,17 @@
 import sqlite3
+from pathlib import Path
 from contextlib import contextmanager
 from app.config import settings
 
 
 def get_connection(db_path: str | None = None) -> sqlite3.Connection:
     target = db_path or settings.SQLITE_DB_PATH
+    if target != ":memory:":
+        Path(target).expanduser().resolve().parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(target, timeout=10.0, isolation_level="IMMEDIATE")
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys = ON")
+    conn.execute("PRAGMA busy_timeout = 10000")
     return conn
 
 
@@ -37,9 +42,20 @@ def init_db(db_path: str | None = None) -> None:
     - `suppression_registry`: Tracks FCC April 2025 Enhanced TCPA Revocation opt-outs.
     - `onboarding_runs`: Tracks 5-stage autonomous client onboarding runs and generated Kickoff Briefs.
     """
+    if (db_path or settings.SQLITE_DB_PATH) != ":memory:":
+        with get_connection(db_path) as setup_conn:
+            setup_conn.execute("PRAGMA journal_mode = WAL")
+            setup_conn.execute("PRAGMA synchronous = NORMAL")
     with transactional_db(db_path) as conn:
         conn.executescript(
             """
+            CREATE TABLE IF NOT EXISTS auth_rate_limits (
+                rate_key TEXT PRIMARY KEY,
+                failures INTEGER NOT NULL DEFAULT 0,
+                window_started_at INTEGER NOT NULL,
+                blocked_until INTEGER NOT NULL DEFAULT 0
+            );
+
             CREATE TABLE IF NOT EXISTS tenants (
                 tenant_id TEXT PRIMARY KEY,
                 business_name TEXT NOT NULL,
@@ -58,6 +74,21 @@ def init_db(db_path: str | None = None) -> None:
                 a2p_10dlc_status TEXT NOT NULL DEFAULT 'TCR Approved',
                 supported_skills TEXT NOT NULL DEFAULT 'implant_consultation,emergency_exam,emergency_crown_repair,routine_cleaning,dental_consultation,general_inquiry',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                full_name TEXT NOT NULL,
+                email TEXT NOT NULL COLLATE NOCASE UNIQUE,
+                password_hash TEXT NOT NULL,
+                role TEXT NOT NULL DEFAULT 'client' CHECK (role IN ('owner', 'client')),
+                status TEXT NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING', 'ACTIVE', 'SUSPENDED')),
+                business_name TEXT NOT NULL,
+                vertical TEXT NOT NULL,
+                tenant_id TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (tenant_id) REFERENCES tenants(tenant_id)
             );
 
             CREATE TABLE IF NOT EXISTS appointment_slot_locks (

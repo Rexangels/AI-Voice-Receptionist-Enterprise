@@ -1,4 +1,10 @@
 import sqlite3
+import base64
+import re
+from urllib.parse import urlencode
+from urllib.request import Request, urlopen
+from urllib.error import HTTPError, URLError
+from app.config import settings
 from typing import Dict, Any
 
 OPT_OUT_PHRASES = [
@@ -63,7 +69,8 @@ def dispatch_missed_call_sms_fallback(
     tenant_id: str,
     caller_phone: str,
     business_name: str = "Our Practice",
-    booking_url: str = "https://cal.com/your-clinic/instant-book",
+    booking_url: str = "",
+    consented: bool = False,
 ) -> Dict[str, Any]:
     """
     Fires within 10 seconds when an inbound caller hangs up without completing a booking,
@@ -74,13 +81,32 @@ def dispatch_missed_call_sms_fallback(
 
     if is_phone_suppressed(conn, tenant_id, caller_phone):
         return {"sent": False, "reason": "tcpa_suppressed_number"}
+    if not consented:
+        return {"sent": False, "reason": "documented_sms_consent_required"}
+    if not booking_url or "your-clinic" in booking_url:
+        return {"sent": False, "reason": "tenant_booking_url_not_configured"}
 
+    if not (settings.TWILIO_ACCOUNT_SID and settings.TWILIO_AUTH_TOKEN and settings.TWILIO_PHONE_NUMBER):
+        return {"sent": False, "reason": "twilio_not_configured"}
+    if not re.fullmatch(r"\+[1-9]\d{7,14}", caller_phone):
+        return {"sent": False, "reason": "invalid_destination_number"}
     sms_body = (
-        f"Hi from {business_name}! Sorry we didn't finish locking in your appointment on the phone. "
-        f"You can pick a live time in 15 seconds here: {booking_url} (Reply STOP to opt out)."
+        f"Hi from {business_name}! Sorry we didn't finish your appointment request. "
+        f"You can choose a time here: {booking_url} (Reply STOP to opt out)."
+    )[:1500]
+    endpoint = f"https://api.twilio.com/2010-04-01/Accounts/{settings.TWILIO_ACCOUNT_SID}/Messages.json"
+    auth = base64.b64encode(f"{settings.TWILIO_ACCOUNT_SID}:{settings.TWILIO_AUTH_TOKEN}".encode()).decode()
+    request = Request(
+        endpoint,
+        data=urlencode({"To": caller_phone, "From": settings.TWILIO_PHONE_NUMBER, "Body": sms_body}).encode(),
+        headers={"Authorization": f"Basic {auth}", "Content-Type": "application/x-www-form-urlencoded"},
+        method="POST",
     )
-    return {
-        "sent": True,
-        "to": caller_phone,
-        "body": sms_body,
-    }
+    try:
+        with urlopen(request, timeout=8) as response:
+            import json
+            result = json.loads(response.read().decode("utf-8"))
+        return {"sent": True, "to": caller_phone, "message_sid": result.get("sid"), "status": result.get("status")}
+    except (HTTPError, URLError, TimeoutError, ValueError, OSError):
+        # Never claim delivery when the provider did not accept the request.
+        return {"sent": False, "reason": "twilio_request_failed"}

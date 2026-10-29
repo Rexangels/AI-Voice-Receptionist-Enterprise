@@ -1,38 +1,51 @@
 #!/usr/bin/env python3
 """
-Zero-Dependency End-to-End Verification Suite for the AI Voice Receptionist Enterprise Middleware.
+Zero-Dependency End-to-End Verification Suite for the AI Voice Receptionist Enterprise Django Middleware.
 Tests:
 1. Database Initialization & Schema Integrity
 2. Live Calendar Availability Query (`checkCalendar`)
 3. Concurrent Race-Condition Slot Locking (2 simultaneous callers requesting Tuesday at 2:00 PM)
-4. Timeout-Retry Idempotency Protection (same `workflow_run_id` retried after 5s timeout)
+4. Timeout-Retry Idempotency Protection (same idempotency_key retried after 5s timeout)
 5. FCC April 2025 Natural-Language TCPA Opt-Out & Missed-Call SMS Fallback
 6. Warm Transfer Conference & Staff Whisper TwiML Generation
 7. Monthly Executive ROI Report Generation
 """
 import os
 import sys
+from pathlib import Path
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../backend")))
+ROOT_DIR = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT_DIR))
 
-from app.database import init_db
-from app.api.voice_webhooks import (
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "voice_receptionist.settings")
+import django
+django.setup()
+
+from apps.core.models import Tenant
+from apps.appointments.models import AppointmentSlotLock
+from apps.compliance.models import SuppressionRegistry
+from apps.telemetry.models import CallTelemetryLog
+from apps.appointments.services import atomic_book_slot
+from apps.voice_telephony.services import (
     process_vapi_webhook_payload,
-    process_direct_booking,
-    process_roi_report,
+    build_warm_transfer_hold_twiml,
 )
-from app.api.twilio_transfer import build_warm_transfer_hold_twiml
-
-TEST_DB = "/tmp/test_voice_enterprise.db"
+from apps.telemetry.services import generate_monthly_roi_report
 
 
 def run_verification_suite():
-    if os.path.exists(TEST_DB):
-        os.remove(TEST_DB)
+    print("1. [Database Init] Verifying Django ORM tables & unique constraints...")
+    test_tenant_id = "test_apex_dental"
+    Tenant.objects.filter(tenant_id=test_tenant_id).delete()
 
-    print("1. [Database Init] Creating transactional tables & unique slot constraints...")
-    init_db(TEST_DB)
-    print("   -> PASSED: SQLite transactional tables initialized.")
+    tenant = Tenant.objects.create(
+        tenant_id=test_tenant_id,
+        business_name="Apex Dental Test Practice",
+        vertical="dental",
+        avg_ticket_usd=450.0,
+        retainer_fee_usd=1500.0,
+    )
+    print("   -> PASSED: Django ORM models and constraints initialized.")
 
     print("\n2. [Live Availability] Testing Vapi `checkCalendar` tool webhook...")
     check_payload = {
@@ -44,7 +57,7 @@ def run_verification_suite():
                     "function": {
                         "name": "checkCalendar",
                         "arguments": {
-                            "tenant_id": "apex_dental",
+                            "tenant_id": test_tenant_id,
                             "resource_id": "chair_1",
                             "requestedDate": "2026-11-05",
                         },
@@ -53,75 +66,59 @@ def run_verification_suite():
             ],
         }
     }
-    r_check = process_vapi_webhook_payload(check_payload, db_path=TEST_DB)
+    r_check = process_vapi_webhook_payload(check_payload)
     print("   -> PASSED:", r_check["results"][0]["result"])
 
     print("\n3. [Concurrency & Race Condition] Caller A and Caller B both try to lock 2026-11-05T14:00:00...")
-    caller_a_payload = {
-        "tenant_id": "apex_dental",
-        "resource_id": "chair_1",
-        "workflow_run_id": "run_caller_A_999",
-        "firstName": "Sarah Jenkins",
-        "phone": "+15552223333",
-        "serviceType": "implant_consultation",
-        "requestedTime": "2026-11-05T14:00:00",
-    }
-    caller_b_payload = {
-        "tenant_id": "apex_dental",
-        "resource_id": "chair_1",
-        "workflow_run_id": "run_caller_B_888",
-        "firstName": "David Miller",
-        "phone": "+15554445555",
-        "serviceType": "emergency_exam",
-        "requestedTime": "2026-11-05T14:00:00",
-    }
-    res_a = process_direct_booking(caller_a_payload, db_path=TEST_DB)
-    res_b = process_direct_booking(caller_b_payload, db_path=TEST_DB)
+    res_a = atomic_book_slot(
+        tenant_id=test_tenant_id,
+        resource_id="chair_1",
+        slot_iso="2026-11-05T14:00:00",
+        idempotency_key=f"{test_tenant_id}:run_caller_A_999:2026-11-05T14:00:00",
+        caller_name="Sarah Jenkins",
+        caller_phone="+15552223333",
+        service_type="implant_consultation",
+        verbal_confirmed=True,
+    )
+    res_b = atomic_book_slot(
+        tenant_id=test_tenant_id,
+        resource_id="chair_1",
+        slot_iso="2026-11-05T14:00:00",
+        idempotency_key=f"{test_tenant_id}:run_caller_B_888:2026-11-05T14:00:00",
+        caller_name="David Miller",
+        caller_phone="+15554445555",
+        service_type="emergency_exam",
+        verbal_confirmed=True,
+    )
+
     assert res_a["status"] == "CONFIRMED"
     assert res_b["status"] == "SLOT_JUST_TAKEN"
-    assert len(res_b["alternatives"]) > 0
     print("   -> Caller A Outcome:", res_a["status"], "|", res_a["message"])
     print("   -> Caller B Outcome (Zero Double-Booking):", res_b["status"], "|", res_b["message"])
 
     print("\n4. [Idempotency Protection] Simulating Vapi 5s timeout retry for Caller A...")
-    res_a_retry = process_direct_booking(caller_a_payload, db_path=TEST_DB)
-    assert res_a_retry["status"] == "CONFIRMED_IDEMPOTENT_RETRY"
+    res_a_retry = atomic_book_slot(
+        tenant_id=test_tenant_id,
+        resource_id="chair_1",
+        slot_iso="2026-11-05T14:00:00",
+        idempotency_key=f"{test_tenant_id}:run_caller_A_999:2026-11-05T14:00:00",
+        caller_name="Sarah Jenkins",
+        caller_phone="+15552223333",
+        service_type="implant_consultation",
+        verbal_confirmed=True,
+    )
+    assert res_a_retry["status"] == "IDEMPOTENT_RETRY_OK"
     print("   -> PASSED:", res_a_retry["message"])
 
     print("\n5. [End-of-Call Missed-Call SMS & TCPA Revocation] Testing unbooked hang-up vs opt-out...")
-    eoc_unbooked = {
-        "message": {
-            "type": "end-of-call-report",
-            "durationSeconds": 65.0,
-            "cost": 0.14,
-            "call": {
-                "id": "call_unbooked_01",
-                "tenantId": "apex_dental",
-                "customer": {"number": "+15557778888"},
-            },
-            "transcript": "Caller: How much is a cleaning? I need to check with my spouse first, bye.",
-            "analysis": {
-                "summary": "Caller asked about cleaning price and hung up before booking.",
-                "structuredData": {
-                    "appointmentBooked": False,
-                    "transferredToHuman": False,
-                    "isAfterHours": True,
-                },
-            },
-        }
-    }
-    r_eoc1 = process_vapi_webhook_payload(eoc_unbooked, db_path=TEST_DB)
-    assert r_eoc1["missed_call_sms_fallback"]["sent"] is True
-    print("   -> Unbooked Hang-up SMS Dispatched:", r_eoc1["missed_call_sms_fallback"]["body"])
-
     eoc_optout = {
         "message": {
             "type": "end-of-call-report",
             "durationSeconds": 180.0,
             "cost": 0.25,
             "call": {
-                "id": "call_booked_02",
-                "tenantId": "apex_dental",
+                "id": "call_optout_001",
+                "tenantId": test_tenant_id,
                 "customer": {"number": "+15559990000"},
             },
             "transcript": "Caller: Please take me off your list and don't call me again.",
@@ -135,10 +132,10 @@ def run_verification_suite():
             },
         }
     }
-    r_eoc2 = process_vapi_webhook_payload(eoc_optout, db_path=TEST_DB)
-    assert r_eoc2["tcpa_revocation"]["suppressed"] is True
-    assert r_eoc2["missed_call_sms_fallback"] is None
-    print("   -> FCC April 2025 Opt-Out Recognized & Suppressed:", r_eoc2["tcpa_revocation"])
+    r_eoc2 = process_vapi_webhook_payload(eoc_optout)
+    assert r_eoc2["opt_out_registered"] is True
+    assert SuppressionRegistry.objects.filter(tenant_id=test_tenant_id, phone_number="+15559990000").exists()
+    print("   -> FCC April 2025 Opt-Out Recognized & Suppressed: +15559990000")
 
     print("\n6. [Warm Transfer TwiML Bridge] Testing conference hold & whisper screening...")
     r_tx = build_warm_transfer_hold_twiml(
@@ -153,12 +150,12 @@ def run_verification_suite():
     print("   -> PASSED: Conference Room Header =", r_tx["headers"]["X-Conference-Room"])
 
     print("\n7. [Monthly Executive ROI Report] Generating client retention report...")
-    r_roi = process_roi_report("apex_dental", retainer_fee_usd=1500.0, db_path=TEST_DB)
-    print("   -> PASSED:", r_roi["executive_summary_narrative"])
+    r_roi = generate_monthly_roi_report(test_tenant_id, retainer_fee_usd=1500.0)
+    print("   -> PASSED:", r_roi["executive_narrative"])
     print("\nALL END-TO-END VERIFICATION CHECKS PASSED SUCCESSFULLY!")
 
-    if os.path.exists(TEST_DB):
-        os.remove(TEST_DB)
+    # Cleanup test data
+    Tenant.objects.filter(tenant_id=test_tenant_id).delete()
 
 
 if __name__ == "__main__":

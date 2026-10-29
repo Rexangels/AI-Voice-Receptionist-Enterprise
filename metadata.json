@@ -1,5 +1,5 @@
 {
   "name": "AI Voice Receptionist Enterprise",
-  "description": "Production-grade multi-tenant Inbound AI Voice Receptionist & Atomic Appointment Setter middleware with Vapi/Retell webhook routing, Twilio warm-transfer whisper TwiML, TCPA revocation compliance, and executive ROI telemetry.",
+  "description": "AI voice receptionist prototype with client workspace requests, an owner operations dashboard, example voice configurations, and booking middleware for US HVAC/plumbing and dental pilots.",
   "requestFramePermissions": []
 }

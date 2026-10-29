@@ -1,5 +1,5 @@
 import sqlite3
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Dict, Any, List
 
 DEFAULT_DAILY_HOURS = [9, 10, 11, 13, 14, 15, 16]
@@ -35,23 +35,33 @@ def get_open_slots(
     try:
         base_date = datetime.strptime(target_date_str[:10], "%Y-%m-%d")
     except ValueError:
-        base_date = datetime.utcnow() + timedelta(days=1)
+        return []
 
     cur = conn.execute(
         """
-        SELECT slot_iso FROM appointment_slot_locks
-        WHERE tenant_id = ? AND resource_id = ? AND status IN ('CONFIRMED', 'COMPLETED')
+        SELECT slot_iso, duration_minutes FROM appointment_slot_locks
+        WHERE tenant_id = ? AND resource_id = ? AND status = 'CONFIRMED'
         """,
         (tenant_id, resource_id),
     )
-    booked_set = {row["slot_iso"] for row in cur.fetchall()}
+    busy = []
+    for row in cur.fetchall():
+        try:
+            start = datetime.fromisoformat(row["slot_iso"])
+            if start.tzinfo is None:
+                start = start.replace(tzinfo=timezone.utc)
+            else:
+                start = start.astimezone(timezone.utc)
+            busy.append((start, start + timedelta(minutes=int(row["duration_minutes"] or 60))))
+        except (TypeError, ValueError):
+            continue
 
     available = []
     for hour in DEFAULT_DAILY_HOURS:
-        candidate = base_date.replace(hour=hour, minute=0, second=0, microsecond=0).strftime(
-            "%Y-%m-%dT%H:%M:%S"
-        )
-        if candidate not in booked_set:
+        candidate_dt = base_date.replace(hour=hour, minute=0, second=0, microsecond=0).replace(tzinfo=timezone.utc)
+        candidate = candidate_dt.strftime("%Y-%m-%dT%H:%M:%S")
+        candidate_end = candidate_dt + timedelta(minutes=60)
+        if not any(candidate_dt < busy_end and candidate_end > busy_start for busy_start, busy_end in busy):
             available.append(candidate)
         if len(available) >= max_options:
             break
@@ -111,6 +121,34 @@ def atomic_book_slot(
 
     duration_minutes = SERVICE_DURATION_MAP.get(service_type, 60)
 
+    try:
+        requested_start = datetime.fromisoformat(slot_iso)
+    except (TypeError, ValueError):
+        return {"status": "INVALID_SLOT", "message": "Please request a valid ISO date and time."}
+    if requested_start.tzinfo is None:
+        requested_start = requested_start.replace(tzinfo=timezone.utc)
+    else:
+        requested_start = requested_start.astimezone(timezone.utc)
+    requested_end = requested_start + timedelta(minutes=duration_minutes)
+    existing_slots = conn.execute(
+        "SELECT slot_iso, duration_minutes FROM appointment_slot_locks WHERE tenant_id = ? AND resource_id = ? AND status = 'CONFIRMED'",
+        (tenant_id, resource_id),
+    ).fetchall()
+    for row in existing_slots:
+        try:
+            busy_start = datetime.fromisoformat(row["slot_iso"])
+            busy_start = busy_start.replace(tzinfo=timezone.utc) if busy_start.tzinfo is None else busy_start.astimezone(timezone.utc)
+            busy_end = busy_start + timedelta(minutes=int(row["duration_minutes"] or 60))
+            if requested_start < busy_end and requested_end > busy_start:
+                return {
+                    "status": "SLOT_JUST_TAKEN",
+                    "slot_iso": slot_iso,
+                    "alternatives": get_open_slots(conn, tenant_id, resource_id, slot_iso[:10], max_options=2),
+                    "message": f"SLOT_JUST_TAKEN: {slot_iso} overlaps an existing appointment. Offer another available time.",
+                }
+        except (TypeError, ValueError):
+            continue
+
     # Step 2: Atomic insertion with unique constraint lock
     try:
         cur = conn.execute(
@@ -139,7 +177,7 @@ def atomic_book_slot(
             "duration_minutes": duration_minutes,
             "message": (
                 f"Slot confirmed for {caller_name} on {slot_iso} ({service_type}, {duration_minutes} mins). "
-                f"Confirmation SMS dispatched to {caller_phone}."
+                f"Booking created for {caller_phone}; send a confirmation through a configured messaging provider if available."
             ),
         }
     except sqlite3.IntegrityError:

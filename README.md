@@ -1,19 +1,19 @@
 # AI Voice Receptionist Enterprise (End-to-End Blueprint & Codebase)
 
-A production-grade, multi-tenant **Inbound AI Voice Receptionist & Atomic Appointment Setter** designed for local and mid-market service businesses ($1M–$20M annual revenue across Dental, Medical, HVAC, Plumbing, Legal, and Auto Repair).
+An early prototype and research kit for a managed **AI voice receptionist and appointment service** for US HVAC/plumbing and dental businesses.
 
-This repository contains the complete technical middleware, voice orchestrator configurations (Vapi & Retell AI), n8n agency automation workflows, acoustic & concurrency stress-test harnesses, and Go-To-Market (GTM) sales and legal assets.
+The repository contains a SQLite booking-lock prototype, example Vapi/Retell configurations, draft n8n workflows, a development dashboard, an owner console, a client workspace request flow, and GTM/legal planning materials. Live provider integrations, customer-grade operations, and compliance review are still required before production use.
 
 ---
 
 ## Architecture Highlights
 
-1. **Sub-700ms Acoustic Pipeline:** Configured for Deepgram Nova-3 streaming ASR, Claude Sonnet / GPT-4o-mini reasoning, ElevenLabs Flash / Cartesia Sonic TTS, Silero VAD, and semantic endpointing.
-2. **Atomic Calendar Slot-Locking Middleware (`backend/`):** Transactional booking engine (FastAPI + SQLite/PostgreSQL compatible) that eliminates the #1 failure mode of voice agents—**double bookings from concurrent call race conditions** and **timeout-induced duplicate tool retries**—using unique database constraints (`uq_tenant_resource_slot`) and `workflow_run_id` idempotency keys.
-3. **Contextual Warm Transfer & Whisper Bridge:** Twilio Programmable Voice TwiML endpoints that place callers in a conference bridge, dial human staff, whisper a 10-second AI-synthesized briefing (`"Incoming transfer: Sarah Jenkins, broken crown, verified insurance"`), and merge the call upon staff acceptance (`1`).
-4. **Instant Missed-Call Text-Back & TCPA Compliance:** End-of-call webhook handlers that trigger instant SMS booking links for unbooked hang-ups and enforce FCC April 2025 natural-language opt-out revocation rules (`STOP`, `UNSUBSCRIBE`, `"take me off your list"`).
-5. **Agency Ops Automation (`workflows/n8n/`):** Importable n8n JSON workflows for 60-second client onboarding (Stripe ACH + Contract webhook -> CRM + Portal + Claude/Gemini Kickoff Brief) and automated monthly executive ROI reporting.
-6. **GTM & Legal Kit (`gtm_kit/`):** Interactive ROI & Floor-Price Calculator, After-Hours Mystery Caller Loom scripts, Clay waterfall enrichment schemas, and a Master Services Agreement (MSA) with AI hallucination indemnification and minute-overage guardrails.
+1. **Voice configuration examples:** Draft assistant settings for Vapi and Retell. They use placeholder URLs and have not been validated against a live account.
+2. **Booking-lock prototype (`backend/`):** FastAPI and SQLite code uses a unique tenant/resource/start-time constraint and idempotency key. It does not yet synchronize a real calendar or prevent every overlapping-duration conflict.
+3. **Telephony examples:** TwiML builders illustrate a transfer concept. They do not provide an end-to-end tested staff dial, whisper, and conference flow.
+4. **Opt-out and SMS draft:** Opt-out phrases can be recorded; the fallback function prepares a message but does not dispatch SMS through a provider.
+5. **Owner and client surfaces:** The development UI includes an owner metrics console, client workspace request/approval flow, and scoped sample client view. Owner access is bootstrapped from environment variables.
+6. **Agency planning kit (`workflows/`, `gtm_kit/`):** Draft onboarding/report workflows, pricing tools, outreach notes, and contract templates. Configure, validate, and review them before operational use.
 
 ---
 
@@ -25,7 +25,8 @@ ai-voice-receptionist-enterprise/
 ├── .env.example
 ├── .gitignore
 ├── docker-compose.yml
-├── requirements.txt
+├── docs/
+│   └── readiness-and-roadmap.md
 ├── scripts/
 │   ├── push_to_github.sh                # One-command script to initialize & push to your GitHub
 │   ├── roi_and_pricing_calculator.py    # CLI Value-Based Pricing & Bland/Vapi Break-Even Calculator
@@ -66,28 +67,58 @@ ai-voice-receptionist-enterprise/
 
 ---
 
-## Quickstart (Local or Production VPS)
+## Quickstart (Local development)
 
 ### 1. Configure Environment
 ```bash
 cp .env.example .env
-# Edit .env with your Vapi/Retell, Twilio/Telnyx, and Calendar credentials
+# Set APP_SECRET_KEY and WEBHOOK_SECRET to random values of at least 32 characters.
+# Set BOOTSTRAP_ADMIN_EMAIL and BOOTSTRAP_ADMIN_PASSWORD for the agency owner.
+# Add vendor credentials only when the matching integration has been configured.
 ```
 
-### 2. Run with Docker Compose (or Uvicorn)
+### 2. Run with Django & Uvicorn ASGI (or Docker Compose)
+
+**Option A — Direct Python / Django Run:**
 ```bash
-docker-compose up --build -d
-```
-The atomic middleware API will be live at `http://localhost:8000` (Swagger docs at `http://localhost:8000/docs`).
+# Run migrations (automatically handled on app.py start as well)
+python manage.py migrate
 
-### 3. Run the Zero-Dependency Concurrency & Race-Condition Verification Suite
+# Seed initial demo data & bootstrap owner if configured
+python manage.py seed_demo_data
+
+# Start the Django ASGI server on port 3000
+python app.py
+```
+Or use the standard Django management command:
+```bash
+python manage.py runserver 3000
+```
+
+**Option B — Docker Compose:**
+```bash
+docker compose up --build
+```
+
+Open `http://localhost:3000` (or `http://localhost:8000` in Docker) to sign in or `http://localhost:3000/signup` to request a client workspace. The owner account is created from the bootstrap values in `.env`. Applications stay pending until an owner approves them in `/admin`; this starter flow does not send approval emails yet. Development mode includes clearly marked sample records.
+
+### 3. Product surfaces
+
+- `/login`: sign in with owner or client credentials.
+- `/signup`: client workspace request for US HVAC/plumbing and dental businesses.
+- `/admin`: owner-only agency metrics and manual application review.
+- `/client`: approved client's scoped call and booking summary.
+- `/django-admin/`: native Django Admin panel for administrative data management.
+- `/health`: health check and capability telemetry.
+
+### 4. Run the Zero-Dependency Concurrency & Race-Condition Verification Suite
 Verify that two simultaneous callers attempting to book the exact same dental chair or HVAC technician slot at the exact same millisecond never cause a double booking:
 ```bash
 python3 scripts/stress_test_simulator.py
 python3 scripts/roi_and_pricing_calculator.py
 ```
 
-### 4. Publish Directly to Your GitHub
+### 5. Publish Directly to Your GitHub
 Run the included helper script:
 ```bash
 chmod +x scripts/push_to_github.sh

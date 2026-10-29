@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0a1421"><title>Sign in | AI Voice Receptionist</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root{color-scheme:dark;--bg:#09131f;--panel:#101e2c;--panel2:#152638;--line:#263a4d;--text:#edf5fa;--muted:#94a9b9;--blue:#59c8e9;--blue2:#7ce2e8;--danger:#ff8f91;--sans:'DM Sans',Arial,sans-serif;--display:'Space Grotesk',Arial,sans-serif}
+    *{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(ellipse at 75% 18%,#113849 0,transparent 38%),radial-gradient(ellipse at 12% 90%,#142b3c 0,transparent 42%),var(--bg);color:var(--text);font:15px/1.55 var(--sans);display:grid;grid-template-columns:minmax(0,1fr) minmax(370px,520px);gap:6vw;align-items:center;padding:48px clamp(24px,8vw,128px)}
+    .brand{position:absolute;top:32px;left:clamp(24px,8vw,128px);display:flex;align-items:center;gap:11px;color:var(--text);text-decoration:none;font:700 17px var(--display)}.mark{width:33px;height:33px;border-radius:11px;background:linear-gradient(145deg,#7ce2e8,#228cb4);display:grid;place-items:center;color:#06202b;font-size:17px;box-shadow:0 8px 28px #35b4d255}
+    .intro{max-width:650px;padding-top:46px}.eyebrow{color:var(--blue2);text-transform:uppercase;letter-spacing:.16em;font-size:11px;font-weight:700}.intro h1{font:600 clamp(38px,5vw,68px)/1.08 var(--display);letter-spacing:-.055em;margin:18px 0 20px}.intro h1 span{color:var(--blue2)}.intro p{color:#a9bdca;font-size:17px;max-width:540px;margin:0}.signals{display:flex;gap:26px;margin-top:38px;color:#bad0dc;font-size:13px}.signals span:before{content:'●';color:#65d8bf;font-size:11px;margin-right:9px}
+    .card{background:linear-gradient(160deg,#122333f2,#0e1a27f5);border:1px solid #2d4558;border-radius:24px;padding:34px;box-shadow:0 30px 90px #02080f88}.card h2{font:600 27px var(--display);letter-spacing:-.04em;margin:0 0 6px}.sub{color:var(--muted);margin:0 0 26px}.field{display:grid;gap:7px;margin:15px 0}.field label{font-size:12px;color:#c8d8e2;font-weight:600}.field input{height:48px;border:1px solid var(--line);background:#0b1722;border-radius:10px;padding:0 14px;color:var(--text);font:inherit;outline:0}.field input:focus{border-color:var(--blue);box-shadow:0 0 0 3px #59c8e922}.btn{border:0;border-radius:11px;height:49px;width:100%;margin-top:10px;background:linear-gradient(100deg,#66d6e8,#65c5da);color:#08202b;font:700 14px var(--sans);cursor:pointer}.btn:hover{filter:brightness(1.08)}.error{min-height:22px;color:var(--danger);font-size:13px;margin-top:12px}.foot{color:var(--muted);font-size:13px;text-align:center;margin-top:22px}.foot a{color:var(--blue2);text-decoration:none}.foot a:hover{text-decoration:underline}.fine{color:#71899a;font-size:11px;margin-top:20px;text-align:center}
+    @media(max-width:850px){body{grid-template-columns:1fr;gap:32px;padding:92px 22px 32px}.intro{display:none}.brand{top:24px;left:22px}.card{max-width:520px;width:100%;margin:auto;padding:28px 23px}}
+  </style>
+</head>
+<body>
+  <a class="brand" href="/"><span class="mark">A</span>AI Voice Receptionist</a>
+  <section class="intro"><div class="eyebrow">AI-powered front desk operations</div><h1>Every caller gets a clear next step<span>.</span></h1><p>One calm, connected workspace for your calls, appointments, and after-hours coverage.</p><div class="signals"><span>Calls captured</span><span>Bookings tracked</span><span>People stay in control</span></div></section>
+  <main class="card"><h2>Welcome back</h2><p class="sub">Sign in to your receptionist workspace.</p>
+    <form id="login-form"><div class="field"><label for="email">Work email</label><input id="email" type="email" autocomplete="username" required></div><div class="field"><label for="password">Password</label><input id="password" type="password" autocomplete="current-password" required></div><button class="btn" type="submit">Sign in</button><div class="error" id="error" role="alert"></div></form>
+    <div class="foot">New here? <a href="/signup">Request a workspace</a></div><div class="fine">Secure access for approved teams.</div>
+  </main>
+  <script>
+    const form=document.getElementById('login-form'),error=document.getElementById('error');
+    form.addEventListener('submit',async event=>{event.preventDefault();error.textContent='';const button=form.querySelector('button');button.disabled=true;button.textContent='Signing in…';try{const response=await fetch('/api/v1/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:document.getElementById('email').value,password:document.getElementById('password').value})});const data=await response.json();if(!response.ok)throw new Error(data.detail||'Unable to sign in.');window.location.href=data.role==='owner'?'/admin':'/client'}catch(err){error.textContent=err.message}finally{button.disabled=false;button.textContent='Sign in'}});
+  </script>
+</body>
+</html>

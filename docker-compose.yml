@@ -3,13 +3,26 @@ version: '3.9'
 services:
   voice-middleware:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: backend/Dockerfile
     container_name: ai-voice-receptionist-api
     ports:
       - "8000:8000"
-    env_file:
-      - .env
+    environment:
+      APP_ENV: ${APP_ENV:-development}
+      APP_SECRET_KEY: ${APP_SECRET_KEY:-}
+      WEBHOOK_SECRET: ${WEBHOOK_SECRET:-}
+      VOICE_ASSISTANT_TENANT_MAP: ${VOICE_ASSISTANT_TENANT_MAP:-}
+      BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:-}
+      BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:-}
+      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
+      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
+      TWILIO_PHONE_NUMBER: ${TWILIO_PHONE_NUMBER:-}
+      HUMAN_ESCALATION_NUMBER: ${HUMAN_ESCALATION_NUMBER:-}
+      SQLITE_DB_PATH: /app/data/voice_enterprise.db
     volumes:
-      - ./data:/app/data
+      - voice_data:/app/data
     restart: unless-stopped
+
+volumes:
+  voice_data:

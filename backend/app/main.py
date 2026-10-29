@@ -1,12 +1,16 @@
 import io
 import json
 import os
+import re
 import sys
+import uuid
+import sqlite3
 from contextlib import redirect_stdout
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Dict, Any
 from urllib.parse import parse_qs, urlparse
+import hmac
 
 ROOT_DIR = Path(__file__).resolve().parent.parent.parent
 BACKEND_DIR = Path(__file__).resolve().parent.parent
@@ -20,6 +24,20 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 from app.database import init_db, transactional_db  # noqa: E402
+from app.config import settings  # noqa: E402
+from app.services.auth import (  # noqa: E402
+    bootstrap_owner,
+    create_session_token,
+    get_current_user,
+    hash_password,
+    normalize_signup_email,
+    enforce_rate_limit,
+    record_auth_failure,
+    clear_auth_failures,
+    require_client,
+    require_owner,
+    verify_password,
+)
 from app.services.slot_locker import release_booked_slot, update_booking_status  # noqa: E402
 from app.api.voice_webhooks import (  # noqa: E402
     process_vapi_webhook_payload,
@@ -32,6 +50,7 @@ from app.api.twilio_transfer import (  # noqa: E402
 )
 
 init_db()
+bootstrap_owner()
 
 
 def _seed_initial_demo_data_if_empty() -> None:
@@ -191,23 +210,28 @@ def _seed_initial_demo_data_if_empty() -> None:
                 )
 
 
-_seed_initial_demo_data_if_empty()
+if settings.APP_ENV.lower() != "production":
+    _seed_initial_demo_data_if_empty()
 
 
 def get_health_payload() -> Dict[str, Any]:
+    try:
+        with transactional_db() as conn:
+            conn.execute("SELECT 1").fetchone()
+    except Exception:
+        return {"status": "unhealthy", "service": "ai-voice-receptionist-enterprise", "checks": {"database": "failed"}}
     return {
         "status": "healthy",
         "service": "ai-voice-receptionist-enterprise",
-        "commercial_readiness": "PRODUCTION_READY",
-        "features": [
-            "atomic_slot_locking",
-            "idempotent_tool_retries",
+        "commercial_readiness": "PROTOTYPE",
+        "checks": {"database": "ok"},
+        "prototype_capabilities": [
+            "sqlite_slot_uniqueness",
+            "idempotency_key_handling",
             "verbal_confirmation_gate",
-            "warm_transfer_whisper",
-            "tcpa_april_2025_revocation",
-            "automated_roi_telemetry",
-            "autonomous_5_stage_onboarding",
-            "minute_overage_guardrails",
+            "opt_out_phrase_recording",
+            "owner_and_client_dashboard_starters",
+            "pending_workspace_approval",
         ],
     }
 
@@ -257,6 +281,98 @@ def get_system_state_payload(
         "onboarding_runs": onboarding_runs,
         "roi": roi,
     }
+
+
+def get_admin_metrics_payload() -> Dict[str, Any]:
+    with transactional_db() as conn:
+        totals = dict(
+            conn.execute(
+                """SELECT
+                    (SELECT COUNT(*) FROM tenants) AS client_count,
+                    (SELECT COUNT(*) FROM users WHERE role = 'client' AND status = 'ACTIVE') AS active_accounts,
+                    (SELECT COUNT(*) FROM users WHERE role = 'client' AND status = 'PENDING') AS pending_applications,
+                    (SELECT COUNT(*) FROM call_telemetry_logs) AS total_calls,
+                    (SELECT COUNT(*) FROM call_telemetry_logs WHERE appointment_booked = 1) AS booked_calls,
+                    (SELECT COUNT(*) FROM call_telemetry_logs WHERE human_transferred = 1) AS transfers,
+                    (SELECT COUNT(*) FROM call_telemetry_logs WHERE after_hours = 1) AS after_hours_calls,
+                    (SELECT COALESCE(ROUND(AVG(turn_latency_p50_ms)), 0) FROM call_telemetry_logs) AS avg_turn_latency_p50_ms,
+                    (SELECT COALESCE(ROUND(AVG(turn_latency_p95_ms)), 0) FROM call_telemetry_logs) AS avg_turn_latency_p95_ms,
+                    (SELECT COALESCE(ROUND(AVG(ttfa_ms)), 0) FROM call_telemetry_logs) AS avg_ttfa_ms,
+                    (SELECT COALESCE(SUM(race_conflict_prevented), 0) FROM call_telemetry_logs) AS race_conflicts_prevented,
+                    (SELECT COUNT(*) FROM suppression_registry) AS opt_outs_recorded,
+                    (SELECT COALESCE(SUM(cost_usd), 0) FROM call_telemetry_logs) AS estimated_voice_cost_usd,
+                    (SELECT COALESCE(SUM(attributed_revenue_usd), 0) FROM call_telemetry_logs) AS attributed_revenue_usd"""
+            ).fetchone()
+        )
+        clients = [
+            dict(row)
+            for row in conn.execute(
+                """SELECT t.tenant_id, t.business_name, t.vertical, t.created_at,
+                    COUNT(c.id) AS total_calls,
+                    COALESCE(SUM(c.appointment_booked), 0) AS booked_calls,
+                    COALESCE(SUM(c.human_transferred), 0) AS transfers,
+                    COALESCE(SUM(c.cost_usd), 0) AS estimated_voice_cost_usd,
+                    COALESCE(SUM(c.attributed_revenue_usd), 0) AS attributed_revenue_usd
+                FROM tenants t LEFT JOIN call_telemetry_logs c ON c.tenant_id = t.tenant_id
+                GROUP BY t.tenant_id ORDER BY t.created_at DESC"""
+            ).fetchall()
+        ]
+        applications = [
+            dict(row)
+            for row in conn.execute(
+                """SELECT id, full_name, email, business_name, vertical, created_at
+                FROM users WHERE role = 'client' AND status = 'PENDING' ORDER BY created_at ASC LIMIT 100"""
+            ).fetchall()
+        ]
+    totals["booking_rate"] = round(totals["booked_calls"] / totals["total_calls"], 4) if totals["total_calls"] else 0
+    return {
+        "environment": settings.APP_ENV.lower(),
+        "metrics": totals,
+        "clients": clients,
+        "applications": applications,
+    }
+
+
+def get_client_metrics_payload(tenant_id: str) -> Dict[str, Any]:
+    with transactional_db() as conn:
+        tenant = conn.execute(
+            "SELECT tenant_id, business_name, vertical FROM tenants WHERE tenant_id = ?", (tenant_id,)
+        ).fetchone()
+        if not tenant:
+            return {"tenant": None, "metrics": {}, "calls": [], "bookings": []}
+        metrics = dict(
+            conn.execute(
+                """SELECT COUNT(*) AS total_calls,
+                    COALESCE(SUM(appointment_booked), 0) AS booked_calls,
+                    COALESCE(SUM(human_transferred), 0) AS transfers,
+                    COALESCE(SUM(after_hours), 0) AS after_hours_calls,
+                    COALESCE(ROUND(AVG(turn_latency_p50_ms)), 0) AS avg_turn_latency_p50_ms,
+                    COALESCE(ROUND(AVG(turn_latency_p95_ms)), 0) AS avg_turn_latency_p95_ms,
+                    COALESCE(ROUND(AVG(ttfa_ms)), 0) AS avg_ttfa_ms,
+                    COALESCE(SUM(race_conflict_prevented), 0) AS race_conflicts_prevented,
+                    COALESCE(SUM(cost_usd), 0) AS estimated_voice_cost_usd,
+                    COALESCE(SUM(attributed_revenue_usd), 0) AS attributed_revenue_usd
+                FROM call_telemetry_logs WHERE tenant_id = ?""", (tenant_id,)
+            ).fetchone()
+        )
+        metrics["opt_outs_recorded"] = conn.execute(
+            "SELECT COUNT(*) AS count FROM suppression_registry WHERE tenant_id = ?", (tenant_id,)
+        ).fetchone()["count"]
+        calls = [dict(row) for row in conn.execute(
+            """SELECT call_id, duration_seconds, appointment_booked, human_transferred,
+                after_hours, attributed_revenue_usd, summary, created_at
+            FROM call_telemetry_logs WHERE tenant_id = ? ORDER BY id DESC LIMIT 25""", (tenant_id,)
+        ).fetchall()]
+        bookings = [dict(row) for row in conn.execute(
+            """SELECT id, resource_id, slot_iso, caller_name, service_type, duration_minutes, status
+            FROM appointment_slot_locks WHERE tenant_id = ? ORDER BY slot_iso DESC LIMIT 25""", (tenant_id,)
+        ).fetchall()]
+    metrics["booking_rate"] = round(metrics["booked_calls"] / metrics["total_calls"], 4) if metrics["total_calls"] else 0
+    return {"tenant": dict(tenant), "metrics": metrics, "calls": calls, "bookings": bookings}
+
+
+def is_valid_webhook_secret(value: str | None) -> bool:
+    return bool(settings.WEBHOOK_SECRET and value and hmac.compare_digest(value, settings.WEBHOOK_SECRET))
 
 
 def get_warm_transfer_preview_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
@@ -702,8 +818,8 @@ class EnterpriseMiddlewareHTTPHandler(BaseHTTPRequestHandler):
 
 # Optional FastAPI wiring when running in an external container with FastAPI installed
 try:
-    from fastapi import FastAPI, Response
-    from fastapi.responses import FileResponse, HTMLResponse
+    from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response
+    from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
     from fastapi.staticfiles import StaticFiles
 
     app = FastAPI(
@@ -715,17 +831,142 @@ try:
         version="2.0.0",
     )
 
-    if STATIC_DIR.exists():
-        app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
     if PUBLIC_DIR.exists():
         app.mount("/public", StaticFiles(directory=str(PUBLIC_DIR)), name="public")
 
     @app.get("/", response_class=HTMLResponse)
-    def root_dashboard():
-        index_file = STATIC_DIR / "index.html"
-        if index_file.exists():
-            return FileResponse(index_file)
-        return HTMLResponse("<h1>AI Voice Receptionist Enterprise Middleware</h1>")
+    @app.get("/login", response_class=HTMLResponse)
+    def login_page():
+        login_file = STATIC_DIR / "login.html"
+        if login_file.exists():
+            return FileResponse(login_file)
+        return HTMLResponse("<h1>Sign in</h1>")
+
+    @app.get("/signup", response_class=HTMLResponse)
+    def signup_page():
+        signup_file = STATIC_DIR / "signup.html"
+        if signup_file.exists():
+            return FileResponse(signup_file)
+        return HTMLResponse("<h1>Request a workspace</h1>")
+
+    @app.get("/admin", response_class=HTMLResponse)
+    def admin_page():
+        admin_file = STATIC_DIR / "admin.html"
+        if admin_file.exists():
+            return FileResponse(admin_file)
+        return HTMLResponse("<h1>Agency admin</h1>")
+
+    @app.get("/client", response_class=HTMLResponse)
+    def client_page():
+        client_file = STATIC_DIR / "client.html"
+        if client_file.exists():
+            return FileResponse(client_file)
+        return HTMLResponse("<h1>Client workspace</h1>")
+
+    @app.post("/api/v1/auth/signup", status_code=202)
+    def signup_endpoint(payload: Dict[str, Any], request: Request):
+        signup_key = f"signup:{request.client.host if request.client else 'unknown'}"
+        enforce_rate_limit(signup_key, limit=5)
+        record_auth_failure(signup_key, limit=5)
+        full_name = str(payload.get("full_name", "")).strip()
+        business_name = str(payload.get("business_name", "")).strip()
+        vertical = str(payload.get("vertical", "")).strip().lower()
+        password = str(payload.get("password", ""))
+        if len(full_name) < 2 or len(full_name) > 100:
+            raise HTTPException(status_code=400, detail="Enter your name (2 to 100 characters).")
+        if len(business_name) < 2 or len(business_name) > 120:
+            raise HTTPException(status_code=400, detail="Enter a business name (2 to 120 characters).")
+        if vertical not in {"hvac_plumbing", "dental"}:
+            raise HTTPException(status_code=400, detail="Choose HVAC/plumbing or dental.")
+        if len(password) < 12:
+            raise HTTPException(status_code=400, detail="Use a password with at least 12 characters.")
+        email = normalize_signup_email(str(payload.get("email", "")))
+        try:
+            with transactional_db() as conn:
+                conn.execute(
+                    """INSERT INTO users (full_name, email, password_hash, business_name, vertical)
+                    VALUES (?, ?, ?, ?, ?)""",
+                    (full_name, email, hash_password(password), business_name, vertical),
+                )
+                conn.commit()
+        except sqlite3.IntegrityError:
+            raise HTTPException(status_code=409, detail="An application already exists for this email.")
+        return JSONResponse(
+            status_code=202,
+            content={"status": "PENDING", "message": "Application received. An administrator must approve access."},
+        )
+
+    @app.post("/api/v1/auth/login")
+    def login_endpoint(payload: Dict[str, Any], response: Response, request: Request):
+        email = normalize_signup_email(str(payload.get("email", "")))
+        rate_key = f"login:{request.client.host if request.client else 'unknown'}:{email}"
+        enforce_rate_limit(rate_key, limit=10)
+        password = str(payload.get("password", ""))
+        with transactional_db() as conn:
+            user = conn.execute(
+                "SELECT id, email, full_name, password_hash, role, status FROM users WHERE email = ?",
+                (email,),
+            ).fetchone()
+        if not user or not verify_password(password, user["password_hash"]):
+            record_auth_failure(rate_key)
+            raise HTTPException(status_code=401, detail="Email or password is incorrect.")
+        if user["status"] == "PENDING":
+            raise HTTPException(status_code=403, detail="Your application is waiting for administrator review.")
+        if user["status"] != "ACTIVE":
+            raise HTTPException(status_code=403, detail="This account is currently unavailable.")
+        response.set_cookie(
+            key="ar_session",
+            value=create_session_token(user["id"]),
+            max_age=12 * 60 * 60,
+            httponly=True,
+            secure=settings.APP_ENV.lower() == "production",
+            samesite="lax",
+            path="/",
+        )
+        clear_auth_failures(rate_key)
+        return {"status": "signed_in", "role": user["role"], "full_name": user["full_name"]}
+
+    @app.post("/api/v1/auth/logout")
+    def logout_endpoint(response: Response):
+        response.delete_cookie("ar_session", path="/", httponly=True, secure=settings.APP_ENV.lower() == "production", samesite="lax")
+        return {"status": "signed_out"}
+
+    @app.get("/api/v1/auth/me")
+    def current_user_endpoint(current_user: Dict[str, Any] = Depends(get_current_user)):
+        return current_user
+
+    @app.get("/api/v1/admin/metrics")
+    def admin_metrics_endpoint(current_user: Dict[str, Any] = Depends(require_owner)):
+        return get_admin_metrics_payload()
+
+    @app.post("/api/v1/admin/applications/{application_id}/approve")
+    def approve_application_endpoint(
+        application_id: int,
+        current_user: Dict[str, Any] = Depends(require_owner),
+    ):
+        with transactional_db() as conn:
+            applicant = conn.execute(
+                "SELECT * FROM users WHERE id = ? AND role = 'client' AND status = 'PENDING'",
+                (application_id,),
+            ).fetchone()
+            if not applicant:
+                raise HTTPException(status_code=404, detail="Pending application not found.")
+            slug = re.sub(r"[^a-z0-9]+", "_", applicant["business_name"].lower()).strip("_")[:32] or "client"
+            tenant_id = f"{slug}_{uuid.uuid4().hex[:8]}"
+            conn.execute(
+                "INSERT INTO tenants (tenant_id, business_name, vertical) VALUES (?, ?, ?)",
+                (tenant_id, applicant["business_name"], applicant["vertical"]),
+            )
+            conn.execute(
+                "UPDATE users SET status = 'ACTIVE', tenant_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                (tenant_id, application_id),
+            )
+            conn.commit()
+        return {"status": "ACTIVE", "tenant_id": tenant_id, "email": applicant["email"]}
+
+    @app.get("/api/v1/client/metrics")
+    def client_metrics_endpoint(current_user: Dict[str, Any] = Depends(require_client)):
+        return get_client_metrics_payload(current_user["tenant_id"])
 
     @app.get("/health")
     @app.get("/api/health")
@@ -733,19 +974,28 @@ try:
         return get_health_payload()
 
     @app.get("/api/v1/voice/state")
-    def get_system_state(tenant_id: str = "default_clinic", retainer_fee_usd: float = 1500.0):
+    def get_system_state(
+        tenant_id: str = "default_clinic",
+        retainer_fee_usd: float = 1500.0,
+        current_user: Dict[str, Any] = Depends(require_owner),
+    ):
         return get_system_state_payload(tenant_id, retainer_fee_usd)
 
     @app.post("/api/v1/voice/vapi-webhook")
-    def vapi_webhook_endpoint(payload: Dict[str, Any]):
+    def vapi_webhook_endpoint(
+        payload: Dict[str, Any],
+        x_webhook_secret: str | None = Header(default=None),
+    ):
+        if not is_valid_webhook_secret(x_webhook_secret):
+            raise HTTPException(status_code=401, detail="Valid webhook secret required.")
         return process_vapi_webhook_payload(payload)
 
     @app.post("/api/v1/voice/book-direct")
-    def book_direct_endpoint(payload: Dict[str, Any]):
+    def book_direct_endpoint(payload: Dict[str, Any], current_user: Dict[str, Any] = Depends(require_owner)):
         return process_direct_booking(payload)
 
     @app.post("/api/v1/voice/update-booking-status")
-    def update_booking_status_endpoint(payload: Dict[str, Any]):
+    def update_booking_status_endpoint(payload: Dict[str, Any], current_user: Dict[str, Any] = Depends(require_owner)):
         with transactional_db() as conn:
             return update_booking_status(
                 conn,
@@ -755,7 +1005,7 @@ try:
             )
 
     @app.post("/api/v1/voice/release-slot")
-    def release_slot_endpoint(payload: Dict[str, Any]):
+    def release_slot_endpoint(payload: Dict[str, Any], current_user: Dict[str, Any] = Depends(require_owner)):
         with transactional_db() as conn:
             return release_booked_slot(
                 conn,
@@ -764,36 +1014,36 @@ try:
             )
 
     @app.get("/api/v1/voice/roi-report/{tenant_id}")
-    def roi_report_endpoint(tenant_id: str, retainer_fee_usd: float = 1500.0):
+    def roi_report_endpoint(tenant_id: str, retainer_fee_usd: float = 1500.0, current_user: Dict[str, Any] = Depends(require_owner)):
         return process_roi_report(tenant_id, retainer_fee_usd)
 
     @app.post("/api/v1/telephony/warm-transfer-hold")
-    def warm_transfer_endpoint(payload: Dict[str, Any]):
+    def warm_transfer_endpoint(payload: Dict[str, Any], current_user: Dict[str, Any] = Depends(require_owner)):
         res = build_warm_transfer_hold_twiml(payload)
         return Response(content=res["twiml"], media_type="application/xml", headers=res["headers"])
 
     @app.post("/api/v1/telephony/warm-transfer-preview")
-    def warm_transfer_preview_endpoint(payload: Dict[str, Any]):
+    def warm_transfer_preview_endpoint(payload: Dict[str, Any], current_user: Dict[str, Any] = Depends(require_owner)):
         return get_warm_transfer_preview_payload(payload)
 
     @app.get("/api/v1/telephony/staff-whisper")
-    def staff_whisper_endpoint(briefing: str = "Incoming warm transfer. Press 1 to accept."):
+    def staff_whisper_endpoint(briefing: str = "Incoming warm transfer. Press 1 to accept.", current_user: Dict[str, Any] = Depends(require_owner)):
         return Response(content=build_staff_whisper_twiml(briefing), media_type="application/xml")
 
     @app.post("/api/v1/voice/run-stress-test")
-    def run_stress_test_endpoint():
+    def run_stress_test_endpoint(current_user: Dict[str, Any] = Depends(require_owner)):
         return run_stress_test_payload()
 
     @app.post("/api/v1/voice/pricing-calculator")
-    def pricing_calculator_endpoint(payload: Dict[str, Any]):
+    def pricing_calculator_endpoint(payload: Dict[str, Any], current_user: Dict[str, Any] = Depends(require_owner)):
         return run_pricing_calculator_payload(payload)
 
     @app.post("/api/v1/agency/onboard-client")
-    def onboard_client_endpoint(payload: Dict[str, Any]):
+    def onboard_client_endpoint(payload: Dict[str, Any], current_user: Dict[str, Any] = Depends(require_owner)):
         return run_autonomous_onboarding_payload(payload)
 
     @app.post("/api/v1/agency/generate-gtm-assets")
-    def generate_gtm_assets_endpoint(payload: Dict[str, Any]):
+    def generate_gtm_assets_endpoint(payload: Dict[str, Any], current_user: Dict[str, Any] = Depends(require_owner)):
         return generate_gtm_assets_payload(payload)
 
 except ImportError:
@@ -801,18 +1051,11 @@ except ImportError:
 
 
 def run_server(host: str = "0.0.0.0", port: int = 3000) -> None:
-    try:
-        import uvicorn
+    if app is None:
+        raise RuntimeError("FastAPI is required. Install backend/requirements.txt before starting the service.")
+    import uvicorn
 
-        if app is not None:
-            uvicorn.run(app, host=host, port=port)
-            return
-    except ImportError:
-        pass
-
-    server = ThreadingHTTPServer((host, port), EnterpriseMiddlewareHTTPHandler)
-    print(f"AI Voice Receptionist Enterprise Middleware listening on http://{host}:{port}", flush=True)
-    server.serve_forever()
+    uvicorn.run(app, host=host, port=port)
 
 
 if __name__ == "__main__":

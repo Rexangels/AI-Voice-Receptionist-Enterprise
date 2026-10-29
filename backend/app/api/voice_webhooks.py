@@ -1,4 +1,5 @@
 import uuid
+import json
 from typing import Dict, Any
 from app.database import transactional_db
 from app.services.slot_locker import get_open_slots, atomic_book_slot
@@ -8,6 +9,23 @@ from app.services.sms_compliance import (
     dispatch_missed_call_sms_fallback,
 )
 from app.services.crm_sync import record_end_of_call_telemetry, generate_monthly_roi_report
+from app.config import settings
+
+
+def _tenant_for_call(message: Dict[str, Any], supplied_tenant: str = "") -> str:
+    """Bind production traffic to a configured assistant ID; never trust model arguments for tenancy."""
+    call = message.get("call", {}) or {}
+    assistant = message.get("assistant", {}) or {}
+    assistant_id = call.get("assistantId") or (assistant.get("id") if isinstance(assistant, dict) else None)
+    try:
+        mapping = json.loads(settings.VOICE_ASSISTANT_TENANT_MAP_RAW)
+    except (TypeError, json.JSONDecodeError):
+        mapping = {}
+    if assistant_id and assistant_id in mapping:
+        return str(mapping[assistant_id])
+    if settings.APP_ENV.lower() == "production":
+        return ""
+    return supplied_tenant
 
 
 def process_vapi_webhook_payload(payload: Dict[str, Any], db_path: str | None = None) -> Dict[str, Any]:
@@ -32,11 +50,17 @@ def process_vapi_webhook_payload(payload: Dict[str, Any], db_path: str | None = 
                 fn_name = fn.get("name", "")
                 args = fn.get("arguments", {})
 
-                tenant_id = args.get("tenant_id", "default_clinic")
-                resource_id = args.get("resource_id", "chair_1")
+                tenant_id = _tenant_for_call(message, str(args.get("tenant_id", "")).strip())
+                resource_id = str(args.get("resource_id", "")).strip()
+                tenant_exists = bool(tenant_id and conn.execute(
+                    "SELECT 1 FROM tenants WHERE tenant_id = ?", (tenant_id,)
+                ).fetchone())
 
                 if fn_name == "checkCalendar":
-                    requested_date = args.get("requestedDate", "2026-11-05")
+                    requested_date = str(args.get("requestedDate", ""))
+                    if not tenant_exists or not resource_id:
+                        results.append({"toolCallId": tc_id, "result": "Workspace/resource is not configured. Escalate to staff."})
+                        continue
                     slots = get_open_slots(conn, tenant_id, resource_id, requested_date, max_options=3)
                     slot_str = ", ".join(slots) if slots else "No slots remaining on that date"
                     results.append(
@@ -47,12 +71,18 @@ def process_vapi_webhook_payload(payload: Dict[str, Any], db_path: str | None = 
                     )
 
                 elif fn_name == "bookAppointment":
+                    if not tenant_exists or not resource_id:
+                        results.append({"toolCallId": tc_id, "result": "Workspace/resource is not configured. Escalate to staff."})
+                        continue
                     workflow_run_id = args.get("workflow_run_id") or tc_id
-                    first_name = args.get("firstName", "Valued Caller")
-                    phone = args.get("phone", "+15550000000")
-                    service_type = args.get("serviceType", "general_inquiry")
-                    requested_time = args.get("requestedTime", "2026-11-05T14:00:00")
-                    verbal_confirmed = bool(args.get("verbalConfirmationConfirmed", True))
+                    first_name = str(args.get("firstName", "")).strip()
+                    phone = str(args.get("phone", "")).strip()
+                    service_type = str(args.get("serviceType", "")).strip()
+                    requested_time = str(args.get("requestedTime", "")).strip()
+                    verbal_confirmed = bool(args.get("verbalConfirmationConfirmed", False))
+                    if not (first_name and phone and service_type and requested_time):
+                        results.append({"toolCallId": tc_id, "result": "Required booking details are missing. Collect them before confirming."})
+                        continue
 
                     outcome = atomic_book_slot(
                         conn=conn,
@@ -69,28 +99,50 @@ def process_vapi_webhook_payload(payload: Dict[str, Any], db_path: str | None = 
 
                 else:
                     results.append(
-                        {"toolCallId": tc_id, "result": f"Executed {fn_name} successfully."}
+                        {"toolCallId": tc_id, "result": f"Unsupported tool: {fn_name}. Escalate to staff."}
                     )
 
             return {"results": results}
 
         if message_type == "end-of-call-report":
             call_obj = message.get("call", {})
-            call_id = call_obj.get("id", f"call_{uuid.uuid4().hex[:10]}")
-            tenant_id = call_obj.get("tenantId", "default_clinic")
-            customer_phone = call_obj.get("customer", {}).get("number", "+15550001111")
+            call_id = str(call_obj.get("id", "")).strip()
+            tenant_id = _tenant_for_call(message, str(call_obj.get("tenantId", "")).strip())
+            customer_phone = str(call_obj.get("customer", {}).get("number", "")).strip()
+            if not call_id or not tenant_id or not customer_phone or not conn.execute(
+                "SELECT 1 FROM tenants WHERE tenant_id = ?", (tenant_id,)
+            ).fetchone():
+                return {"status": "rejected", "reason": "call_tenant_or_caller_identity_missing"}
+            existing_call = conn.execute(
+                "SELECT attributed_revenue_usd FROM call_telemetry_logs WHERE call_id = ? AND tenant_id = ?",
+                (call_id, tenant_id),
+            ).fetchone()
+            if existing_call:
+                return {
+                    "status": "duplicate_ignored",
+                    "call_id": call_id,
+                    "attributed_revenue_usd": existing_call["attributed_revenue_usd"],
+                }
             transcript = message.get("transcript", "")
             analysis = message.get("analysis", {})
             summary = analysis.get("summary", "Call completed.")
             structured = analysis.get("structuredData", {})
             appointment_booked = bool(structured.get("appointmentBooked", False))
             human_transferred = bool(structured.get("transferredToHuman", False))
+            transcript_lower = str(transcript).lower()
+            consent_evidence = (
+                "yes, you can text me" in transcript_lower
+                or "yes, you may text me" in transcript_lower
+                or "i agree to receive text messages" in transcript_lower
+            )
+            # Structured model output alone is not evidence of permission to text.
+            sms_consent = bool(structured.get("smsConsent", False)) and consent_evidence
             after_hours = bool(structured.get("isAfterHours", False))
-            duration_seconds = float(message.get("durationSeconds", 120.0))
-            cost_usd = float(message.get("cost", 0.18))
-            p50_ms = int(message.get("turnLatencyP50Ms", 540))
-            p95_ms = int(message.get("turnLatencyP95Ms", 715))
-            ttfa_ms = int(message.get("ttfaMs", 118))
+            duration_seconds = float(message.get("durationSeconds", 0.0))
+            cost_usd = float(message.get("cost", 0.0))
+            p50_ms = int(message.get("turnLatencyP50Ms", 0))
+            p95_ms = int(message.get("turnLatencyP95Ms", 0))
+            ttfa_ms = int(message.get("ttfaMs", 0))
 
             revoked_phrase = detect_tcpa_revocation(transcript)
             tcpa_action = None
@@ -114,6 +166,7 @@ def process_vapi_webhook_payload(payload: Dict[str, Any], db_path: str | None = 
                     tenant_id=tenant_id,
                     caller_phone=customer_phone,
                     business_name=biz_name,
+                    consented=sms_consent,
                 )
 
             telemetry = record_end_of_call_telemetry(
