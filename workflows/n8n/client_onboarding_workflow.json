@@ -1,0 +1,71 @@
+{
+  "name": "Autonomous 5-Stage AI Voice Client Onboarding Pipeline",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "stripe-ach-and-contract-signed",
+        "responseMode": "onReceived"
+      },
+      "name": "1. Dual Webhook (Contract + Stripe ACH Cleared)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [200, 300]
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "stage": "Onboarding",
+        "notes": "Provisioned automatically upon Stripe ACH ($5 cap) settlement."
+      },
+      "name": "2. Update CRM & Provision Portal Folder",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "model": "claude-3-5-sonnet-latest",
+        "prompt": "Synthesize the sales discovery notes into a warm, personalized welcome email with the pre-filled Tally intake link and delegated access instructions (never request plaintext passwords)."
+      },
+      "name": "3. Claude Welcome Email & Delegated Access Sender",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [700, 300]
+    },
+    {
+      "parameters": {
+        "amount": 24,
+        "unit": "hours"
+      },
+      "name": "4. Wait 24h & Check Intake Form Completion",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [950, 300]
+    },
+    {
+      "parameters": {
+        "model": "claude-3-5-sonnet-latest",
+        "prompt": "Generate a 1-page Kickoff Engineering Brief from the client's intake submission. Explicitly flag missing insurance rules, ambiguous escalation numbers, or conflicting operating hours."
+      },
+      "name": "5. Generate 1-Page Engineering Kickoff Brief",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1200, 300]
+    }
+  ],
+  "connections": {
+    "1. Dual Webhook (Contract + Stripe ACH Cleared)": {
+      "main": [[{ "node": "2. Update CRM & Provision Portal Folder", "type": "main", "index": 0 }]]
+    },
+    "2. Update CRM & Provision Portal Folder": {
+      "main": [[{ "node": "3. Claude Welcome Email & Delegated Access Sender", "type": "main", "index": 0 }]]
+    },
+    "3. Claude Welcome Email & Delegated Access Sender": {
+      "main": [[{ "node": "4. Wait 24h & Check Intake Form Completion", "type": "main", "index": 0 }]]
+    },
+    "4. Wait 24h & Check Intake Form Completion": {
+      "main": [[{ "node": "5. Generate 1-Page Engineering Kickoff Brief", "type": "main", "index": 0 }]]
+    }
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "agent_name": "Retell Inbound Receptionist (HIPAA BAA Ready)",
+  "voice_id": "11labs-Adrian",
+  "voice_model": "eleven_flash_v2_5",
+  "responsiveness": 0.85,
+  "interruption_sensitivity": 0.75,
+  "enable_backchannel": true,
+  "backchannel_words": ["got it", "uh-huh", "I see", "right"],
+  "ambient_sound": "office-ambience",
+  "ambient_sound_volume": 0.15,
+  "webhook_url": "https://your-domain.com/api/v1/voice/vapi-webhook",
+  "boosted_keywords": ["implant", "crown", "root canal", "Delta Dental", "Cigna", "HVAC", "compressor"],
+  "opt_out_sensitive_data_storage": true
+}

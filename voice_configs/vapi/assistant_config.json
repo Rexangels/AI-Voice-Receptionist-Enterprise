@@ -1,0 +1,142 @@
+{
+  "name": "Inbound AI Receptionist & Atomic Appointment Setter",
+  "firstMessage": "Thank you for calling Apex Dental & Implant Studio! My name is Clara, the clinic's automated AI receptionist. This call may be recorded for quality assurance. How can I help you today?",
+  "transcriber": {
+    "provider": "deepgram",
+    "model": "nova-3",
+    "language": "en-US",
+    "smartFormat": true,
+    "endpointing": 250
+  },
+  "model": {
+    "provider": "anthropic",
+    "model": "claude-3-5-sonnet-latest",
+    "temperature": 0.2,
+    "maxTokens": 250,
+    "tools": [
+      {
+        "type": "function",
+        "function": {
+          "name": "checkCalendar",
+          "description": "Queries live clinic availability for a specific date and returns up to 3 open time slots.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "tenant_id": {
+                "type": "string",
+                "default": "apex_dental"
+              },
+              "resource_id": {
+                "type": "string",
+                "default": "chair_1"
+              },
+              "requestedDate": {
+                "type": "string",
+                "description": "Requested date in YYYY-MM-DD format, e.g. 2026-11-05"
+              }
+            },
+            "required": ["requestedDate"]
+          }
+        },
+        "server": {
+          "url": "https://your-domain.com/api/v1/voice/vapi-webhook"
+        },
+        "messages": [
+          {
+            "type": "request-start",
+            "content": "Let me check our live schedule for that day, just a second..."
+          }
+        ]
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "bookAppointment",
+          "description": "Locks and books a confirmed appointment slot atomically. Invoke ONLY after reading back the exact date, time, and service and receiving an explicit 'Yes' from the caller.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "tenant_id": {
+                "type": "string",
+                "default": "apex_dental"
+              },
+              "resource_id": {
+                "type": "string",
+                "default": "chair_1"
+              },
+              "workflow_run_id": {
+                "type": "string",
+                "description": "Unique call or turn idempotency token"
+              },
+              "firstName": {
+                "type": "string",
+                "description": "Caller's full name"
+              },
+              "phone": {
+                "type": "string",
+                "description": "Caller's callback phone number in E.164 format"
+              },
+              "serviceType": {
+                "type": "string",
+                "enum": [
+                  "emergency_exam",
+                  "routine_cleaning",
+                  "implant_consultation",
+                  "general_inquiry"
+                ]
+              },
+              "requestedTime": {
+                "type": "string",
+                "description": "Confirmed slot in ISO 8601 format, e.g. 2026-11-05T14:00:00"
+              }
+            },
+            "required": ["firstName", "phone", "serviceType", "requestedTime"]
+          }
+        },
+        "server": {
+          "url": "https://your-domain.com/api/v1/voice/vapi-webhook"
+        },
+        "messages": [
+          {
+            "type": "request-start",
+            "content": "Locking in that appointment on our calendar right now, one moment please..."
+          },
+          {
+            "type": "request-complete",
+            "content": "You are all set! I have locked that time in and sent a confirmation text to your phone."
+          },
+          {
+            "type": "request-failed",
+            "content": "I had a quick hiccup reaching the schedule, so I just texted a direct booking link to your phone."
+          }
+        ]
+      }
+    ]
+  },
+  "voice": {
+    "provider": "11labs",
+    "voiceId": "21m00Tcm4TlvDq8ikWAM",
+    "model": "eleven_flash_v2_5",
+    "stability": 0.55,
+    "similarityBoost": 0.75
+  },
+  "stopSpeakingPlan": {
+    "numWords": 2,
+    "voiceSeconds": 0.2,
+    "backoffSeconds": 1.0
+  },
+  "analysisPlan": {
+    "summaryPrompt": "Summarize the caller's intent, clinical or service urgency, and booking outcome in 2 concise sentences.",
+    "structuredDataSchema": {
+      "type": "object",
+      "properties": {
+        "callerName": { "type": "string" },
+        "serviceType": { "type": "string" },
+        "appointmentBooked": { "type": "boolean" },
+        "transferredToHuman": { "type": "boolean" },
+        "isAfterHours": { "type": "boolean" }
+      }
+    },
+    "successEvaluationRubric": "PassFail"
+  }
+}

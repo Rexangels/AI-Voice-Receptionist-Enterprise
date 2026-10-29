@@ -1,0 +1,36 @@
+{
+  "name": "Automated Monthly Client ROI Executive Report",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [{ "field": "cronExpression", "expression": "0 9 1 * *" }]
+        }
+      },
+      "name": "1. Monthly 1st of Month Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [200, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://voice-middleware:8000/api/v1/voice/roi-report/apex_dental?retainer_fee_usd=1500",
+        "method": "GET"
+      },
+      "name": "2. Fetch Attributed Pipeline & Call Telemetry",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [480, 300]
+    },
+    {
+      "parameters": {
+        "subject": "Monthly AI Receptionist ROI Report: {{$json.attributed_pipeline_usd}} Recovered Pipeline",
+        "body": "Hi Team,\n\n{{$json.executive_summary_narrative}}\n\nFull breakdown attached in your dashboard."
+      },
+      "name": "3. Dispatch Executive Summary Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [760, 300]
+    }
+  ]
+}
