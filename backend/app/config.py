@@ -18,7 +18,7 @@ _load_dotenv_if_present()
 
 class Settings:
     APP_ENV: str = os.getenv("APP_ENV", "development")
-    PORT: int = int(os.getenv("PORT", "8000"))
+    PORT: int = int(os.getenv("PORT", "3000"))
     SQLITE_DB_PATH: str = os.getenv("SQLITE_DB_PATH", "/tmp/voice_enterprise.db")
     WEBHOOK_SECRET: str = os.getenv("WEBHOOK_SECRET", "dev_secret_key")
 

@@ -1,0 +1,624 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI Voice Receptionist Enterprise</title>
+    <meta
+      name="description"
+      content="Production-grade multi-tenant Inbound AI Voice Receptionist & Atomic Appointment Setter middleware with Vapi/Retell webhook routing, Twilio warm-transfer whisper TwiML, TCPA revocation compliance, and executive ROI telemetry."
+    />
+    <meta property="og:title" content="AI Voice Receptionist Enterprise" />
+    <meta
+      property="og:description"
+      content="Production-grade multi-tenant Inbound AI Voice Receptionist & Atomic Appointment Setter middleware with Vapi/Retell webhook routing, Twilio warm-transfer whisper TwiML, TCPA revocation compliance, and executive ROI telemetry."
+    />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <style>
+      :root {
+        --bg: #0b0f17;
+        --panel: #121826;
+        --panel-alt: #182032;
+        --border: #26324d;
+        --text: #f3f6fc;
+        --muted: #93a3c0;
+        --accent: #38bdf8;
+        --accent-strong: #0284c7;
+        --success: #22c55e;
+        --warn: #f59e0b;
+        --danger: #ef4444;
+        --mono: "JetBrains Mono", "Fira Code", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        --sans: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: var(--sans);
+        line-height: 1.5;
+      }
+      header {
+        border-bottom: 1px solid var(--border);
+        background: rgba(18, 24, 38, 0.9);
+        padding: 1.25rem 2rem;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+      }
+      .brand h1 {
+        margin: 0;
+        font-size: 1.25rem;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+      }
+      .brand p {
+        margin: 0.25rem 0 0;
+        font-size: 0.85rem;
+        color: var(--muted);
+      }
+      .header-actions {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+      }
+      .status-dot {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.8rem;
+        font-family: var(--mono);
+        color: var(--success);
+        padding: 0.4rem 0.75rem;
+        background: rgba(34, 197, 94, 0.1);
+        border: 1px solid rgba(34, 197, 94, 0.3);
+        border-radius: 6px;
+      }
+      .status-dot::before {
+        content: "";
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--success);
+      }
+      .btn {
+        background: var(--accent-strong);
+        color: #fff;
+        border: 1px solid transparent;
+        padding: 0.5rem 0.95rem;
+        border-radius: 6px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        transition: opacity 0.15s ease;
+      }
+      .btn:hover {
+        opacity: 0.92;
+      }
+      .btn-secondary {
+        background: var(--panel-alt);
+        border-color: var(--border);
+        color: var(--text);
+      }
+      .container {
+        max-width: 1360px;
+        margin: 0 auto;
+        padding: 1.5rem 2rem 3rem;
+      }
+      .kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+      }
+      .kpi-card {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 1.1rem 1.25rem;
+      }
+      .kpi-label {
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--muted);
+      }
+      .kpi-value {
+        font-size: 1.65rem;
+        font-weight: 700;
+        font-family: var(--mono);
+        margin-top: 0.35rem;
+      }
+      .kpi-sub {
+        font-size: 0.78rem;
+        color: var(--muted);
+        margin-top: 0.25rem;
+      }
+      .narrative-banner {
+        background: linear-gradient(90deg, rgba(2, 132, 199, 0.16), rgba(18, 24, 38, 0.9));
+        border: 1px solid var(--border);
+        border-left: 4px solid var(--accent);
+        border-radius: 8px;
+        padding: 1rem 1.25rem;
+        margin-bottom: 1.5rem;
+        font-size: 0.92rem;
+      }
+      .main-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+        gap: 1.25rem;
+      }
+      .card {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 1.25rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.9rem;
+      }
+      .card h2 {
+        margin: 0;
+        font-size: 1.02rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .card p.desc {
+        margin: 0;
+        font-size: 0.83rem;
+        color: var(--muted);
+      }
+      .form-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 0.65rem;
+      }
+      label {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+        font-size: 0.76rem;
+        color: var(--muted);
+      }
+      input, select, textarea {
+        background: var(--bg);
+        border: 1px solid var(--border);
+        color: var(--text);
+        border-radius: 6px;
+        padding: 0.45rem 0.6rem;
+        font-size: 0.84rem;
+        font-family: var(--sans);
+      }
+      pre {
+        background: #070a10;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 0.85rem;
+        font-family: var(--mono);
+        font-size: 0.78rem;
+        overflow-x: auto;
+        margin: 0;
+        max-height: 260px;
+        white-space: pre-wrap;
+        color: #cbd5e1;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.82rem;
+      }
+      th, td {
+        text-align: left;
+        padding: 0.55rem 0.6rem;
+        border-bottom: 1px solid var(--border);
+      }
+      th {
+        color: var(--muted);
+        font-weight: 600;
+        font-size: 0.74rem;
+        text-transform: uppercase;
+      }
+      .code-tag {
+        font-family: var(--mono);
+        font-size: 0.75rem;
+        color: var(--accent);
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="brand">
+        <h1>AI Voice Receptionist Enterprise Middleware</h1>
+        <p>Atomic Calendar Slot-Locking • Vapi/Retell Webhook Router • Twilio Warm-Transfer Whisper • FCC April 2025 TCPA Engine</p>
+      </div>
+      <div class="header-actions">
+        <span class="status-dot" id="health-indicator">ASGI ONLINE (PORT 3000)</span>
+        <button class="btn btn-secondary" onclick="runStressTest()">Run Concurrency Suite</button>
+        <a class="btn" href="/docs" target="_blank" rel="noopener">OpenAPI / Swagger</a>
+      </div>
+    </header>
+
+    <main class="container">
+      <section class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-label">Total Calls Answered</div>
+          <div class="kpi-value" id="kpi-calls">0</div>
+          <div class="kpi-sub" id="kpi-after-hours">0 after-hours captured</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Confirmed Slot Locks</div>
+          <div class="kpi-value" id="kpi-bookings">0</div>
+          <div class="kpi-sub">Protected by UNIQUE(tenant, resource, slot)</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Attributed Pipeline</div>
+          <div class="kpi-value" id="kpi-pipeline">$0</div>
+          <div class="kpi-sub" id="kpi-roi">0.0x ROI multiple vs retainer</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">TCPA Suppressions</div>
+          <div class="kpi-value" id="kpi-suppressions">0</div>
+          <div class="kpi-sub">FCC April 2025 natural-language opt-outs</div>
+        </div>
+      </section>
+
+      <div class="narrative-banner" id="roi-narrative">
+        Loading executive telemetry summary...
+      </div>
+
+      <div class="main-grid">
+        <!-- 1. Atomic Slot Locker & Race Condition Tester -->
+        <section class="card">
+          <h2>
+            <span>1. Atomic Calendar Slot-Locker</span>
+            <span class="code-tag">POST /api/v1/voice/book-direct</span>
+          </h2>
+          <p class="desc">
+            Test Read-Offer-Lock-Write atomic booking. Submitting the same slot with a new <code>workflow_run_id</code> triggers <code>SLOT_JUST_TAKEN</code> with live fallback times; reusing the same <code>workflow_run_id</code> proves idempotent timeout protection.
+          </p>
+          <div class="form-row">
+            <label>
+              Caller Name
+              <input type="text" id="book-name" value="Elena Rostova" />
+            </label>
+            <label>
+              Caller Phone
+              <input type="text" id="book-phone" value="+15558889999" />
+            </label>
+          </div>
+          <div class="form-row">
+            <label>
+              Resource ID
+              <input type="text" id="book-resource" value="chair_1" />
+            </label>
+            <label>
+              Requested ISO Slot
+              <input type="text" id="book-slot" value="2026-11-05T11:00:00" />
+            </label>
+            <label>
+              Workflow Run ID (Idempotency)
+              <input type="text" id="book-run-id" value="run_live_201" />
+            </label>
+          </div>
+          <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+            <button class="btn" onclick="bookDirect(false)">Lock Appointment Slot</button>
+            <button class="btn btn-secondary" onclick="bookDirect(true)">Simulate Concurrent Race (New Caller, Same Slot)</button>
+            <button class="btn btn-secondary" onclick="checkCalendarTool()">Check Open Slots (Vapi Tool)</button>
+          </div>
+          <pre id="book-output">Ready to test atomic slot-locking...</pre>
+        </section>
+
+        <!-- 2. End-of-Call Analyzer & TCPA Compliance -->
+        <section class="card">
+          <h2>
+            <span>2. End-of-Call Webhook & TCPA Engine</span>
+            <span class="code-tag">POST /api/v1/voice/vapi-webhook</span>
+          </h2>
+          <p class="desc">
+            Test post-call transcript analysis: unbooked hang-ups trigger instant SMS booking fallback unless natural-language TCPA opt-out revocation is detected.
+          </p>
+          <div class="form-row">
+            <label>
+              Caller Phone
+              <input type="text" id="eoc-phone" value="+15557771212" />
+            </label>
+            <label>
+              Call Scenario
+              <select id="eoc-scenario" onchange="applyEocScenario()">
+                <option value="unbooked">Unbooked Hang-up (Triggers Instant SMS Text-Back)</option>
+                <option value="tcpa">FCC April 2025 Natural-Language Opt-Out ("take me off your list")</option>
+                <option value="booked">Completed Appointment Booking (+Pipeline Attribution)</option>
+              </select>
+            </label>
+          </div>
+          <label>
+            Call Transcript
+            <input type="text" id="eoc-transcript" value="Caller: How much is an exam? Let me check my schedule and call back." />
+          </label>
+          <div>
+            <button class="btn" onclick="sendEndOfCall()">Dispatch End-of-Call Report</button>
+          </div>
+          <pre id="eoc-output">Ready to process end-of-call webhook...</pre>
+        </section>
+
+        <!-- 3. Twilio Warm Transfer & Whisper Bridge -->
+        <section class="card">
+          <h2>
+            <span>3. Contextual Twilio Warm-Transfer Bridge</span>
+            <span class="code-tag">POST /api/v1/telephony/warm-transfer-hold</span>
+          </h2>
+          <p class="desc">
+            Generates Twilio Conference hold TwiML and Whisper screening TwiML so human staff hear a 10-second AI summary before pressing <code>1</code> to bridge.
+          </p>
+          <div class="form-row">
+            <label>
+              Caller Name
+              <input type="text" id="tx-name" value="Sarah Jenkins" />
+            </label>
+            <label>
+              Urgency Reason
+              <input type="text" id="tx-reason" value="Broken crown with acute sensitivity" />
+            </label>
+            <label>
+              Verified Intake Details
+              <input type="text" id="tx-details" value="Delta Dental PPO verified" />
+            </label>
+          </div>
+          <div>
+            <button class="btn" onclick="previewWarmTransfer()">Generate Conference & Whisper TwiML</button>
+          </div>
+          <pre id="tx-output">Click above to inspect generated TwiML & headers...</pre>
+        </section>
+
+        <!-- 4. Agency Pricing & Stress-Test Suite Output -->
+        <section class="card">
+          <h2>
+            <span>4. Verification Suite & Value Pricing Calculator</span>
+            <span class="code-tag">scripts/</span>
+          </h2>
+          <p class="desc">
+            Run the 7-step concurrency & race-condition verification suite or calculate client ROI retainers and vendor tier break-even points.
+          </p>
+          <div class="form-row">
+            <label>
+              Missed Calls / Week
+              <input type="number" id="calc-missed" value="15" />
+            </label>
+            <label>
+              Avg Ticket ($ USD)
+              <input type="number" id="calc-ticket" value="850" />
+            </label>
+            <label>
+              Monthly Voice Minutes
+              <input type="number" id="calc-minutes" value="5000" />
+            </label>
+          </div>
+          <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+            <button class="btn" onclick="runPricingCalculator()">Calculate Retainer & Tier Audit</button>
+            <button class="btn btn-secondary" onclick="runStressTest()">Run 7-Step Stress Test</button>
+          </div>
+          <pre id="suite-output">Ready...</pre>
+        </section>
+      </div>
+
+      <!-- Live Database Tables -->
+      <section class="card" style="margin-top: 1.25rem;">
+        <h2>
+          <span>Live Transactional Slot Locks (`appointment_slot_locks`)</span>
+          <button class="btn btn-secondary" onclick="refreshState()">Refresh Tables</button>
+        </h2>
+        <div style="overflow-x:auto;">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Resource</th>
+                <th>Locked ISO Slot</th>
+                <th>Caller</th>
+                <th>Phone</th>
+                <th>Service Type</th>
+                <th>Idempotency Key</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="bookings-tbody"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      async function refreshState() {
+        try {
+          const res = await fetch("/api/v1/voice/state?tenant_id=default_clinic");
+          const data = await res.json();
+          document.getElementById("kpi-calls").textContent = data.roi.total_calls_answered;
+          document.getElementById("kpi-after-hours").textContent =
+            `${data.roi.after_hours_calls_captured} after-hours captured`;
+          document.getElementById("kpi-bookings").textContent = data.roi.confirmed_appointments_booked;
+          document.getElementById("kpi-pipeline").textContent =
+            `$${Number(data.roi.attributed_pipeline_usd).toLocaleString()}`;
+          document.getElementById("kpi-roi").textContent =
+            `${data.roi.roi_multiple}x ROI vs $${data.roi.retainer_fee_usd} retainer`;
+          document.getElementById("kpi-suppressions").textContent = data.suppressions.length;
+          document.getElementById("roi-narrative").textContent = data.roi.executive_summary_narrative;
+
+          const tbody = document.getElementById("bookings-tbody");
+          tbody.innerHTML = data.bookings
+            .map(
+              (b) => `
+            <tr>
+              <td>#${b.id}</td>
+              <td><code>${b.resource_id}</code></td>
+              <td><code>${b.slot_iso}</code></td>
+              <td>${b.caller_name}</td>
+              <td>${b.caller_phone}</td>
+              <td>${b.service_type}</td>
+              <td><code>${b.idempotency_key}</code></td>
+              <td>${b.status}</td>
+            </tr>
+          `
+            )
+            .join("");
+        } catch (err) {
+          console.error(err);
+        }
+      }
+
+      async function bookDirect(simulateRace) {
+        const runIdInput = document.getElementById("book-run-id");
+        if (simulateRace) {
+          runIdInput.value = "run_race_" + Math.floor(Math.random() * 9000 + 1000);
+        }
+        const payload = {
+          tenant_id: "default_clinic",
+          resource_id: document.getElementById("book-resource").value,
+          workflow_run_id: runIdInput.value,
+          firstName: simulateRace ? "Competing Caller" : document.getElementById("book-name").value,
+          phone: document.getElementById("book-phone").value,
+          serviceType: "dental_consultation",
+          requestedTime: document.getElementById("book-slot").value,
+        };
+        const res = await fetch("/api/v1/voice/book-direct", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        document.getElementById("book-output").textContent = JSON.stringify(data, null, 2);
+        refreshState();
+      }
+
+      async function checkCalendarTool() {
+        const slotVal = document.getElementById("book-slot").value.slice(0, 10);
+        const payload = {
+          message: {
+            type: "tool-calls",
+            toolCalls: [
+              {
+                id: "call_check_live",
+                function: {
+                  name: "checkCalendar",
+                  arguments: {
+                    tenant_id: "default_clinic",
+                    resource_id: document.getElementById("book-resource").value,
+                    requestedDate: slotVal,
+                  },
+                },
+              },
+            ],
+          },
+        };
+        const res = await fetch("/api/v1/voice/vapi-webhook", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        document.getElementById("book-output").textContent = JSON.stringify(data, null, 2);
+      }
+
+      function applyEocScenario() {
+        const sc = document.getElementById("eoc-scenario").value;
+        const tr = document.getElementById("eoc-transcript");
+        if (sc === "unbooked") {
+          tr.value = "Caller: How much is an exam? Let me check with my spouse first and call back.";
+        } else if (sc === "tcpa") {
+          tr.value = "Caller: Please take me off your list and do not call this number again.";
+        } else {
+          tr.value = "Caller: Thank you for locking in my cleaning appointment for tomorrow!";
+        }
+      }
+
+      async function sendEndOfCall() {
+        const sc = document.getElementById("eoc-scenario").value;
+        const payload = {
+          message: {
+            type: "end-of-call-report",
+            durationSeconds: 105.0,
+            cost: 0.15,
+            call: {
+              id: "call_live_" + Math.floor(Math.random() * 90000 + 10000),
+              tenantId: "default_clinic",
+              customer: { number: document.getElementById("eoc-phone").value },
+            },
+            transcript: document.getElementById("eoc-transcript").value,
+            analysis: {
+              summary: "Live webhook test (" + sc + ")",
+              structuredData: {
+                appointmentBooked: sc === "booked",
+                transferredToHuman: false,
+                isAfterHours: true,
+              },
+            },
+          },
+        };
+        const res = await fetch("/api/v1/voice/vapi-webhook", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        document.getElementById("eoc-output").textContent = JSON.stringify(data, null, 2);
+        refreshState();
+      }
+
+      async function previewWarmTransfer() {
+        const payload = {
+          caller_name: document.getElementById("tx-name").value,
+          caller_phone: "+15552223333",
+          urgency_reason: document.getElementById("tx-reason").value,
+          verified_details: document.getElementById("tx-details").value,
+        };
+        const res = await fetch("/api/v1/telephony/warm-transfer-preview", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        document.getElementById("tx-output").textContent =
+          "=== Headers ===\n" +
+          JSON.stringify(data.headers, null, 2) +
+          "\n\n=== Caller Hold TwiML ===\n" +
+          data.hold_twiml +
+          "\n\n=== Staff Whisper Screening TwiML ===\n" +
+          data.whisper_twiml;
+      }
+
+      async function runStressTest() {
+        document.getElementById("suite-output").textContent = "Running 7-step verification suite...";
+        const res = await fetch("/api/v1/voice/run-stress-test", { method: "POST" });
+        const data = await res.json();
+        document.getElementById("suite-output").textContent = data.output;
+      }
+
+      async function runPricingCalculator() {
+        const payload = {
+          missed_calls_per_week: Number(document.getElementById("calc-missed").value),
+          avg_ticket_value_usd: Number(document.getElementById("calc-ticket").value),
+          monthly_minutes: Number(document.getElementById("calc-minutes").value),
+        };
+        const res = await fetch("/api/v1/voice/pricing-calculator", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        document.getElementById("suite-output").textContent = JSON.stringify(data, null, 2);
+      }
+
+      refreshState();
+      previewWarmTransfer();
+    </script>
+  </body>
+</html>
